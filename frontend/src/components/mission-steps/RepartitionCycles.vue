@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
 const risqueOptions = ['Élevé', 'Moyen', 'Faible']
 const collaborateurs = ['KAK', 'SCL', 'KKA', 'HBA']
@@ -21,6 +21,10 @@ const cabinetCollaborateurs = [
 
 const showTeamPanel = ref(false)
 const equipeSelectionnee = ref([])
+const equipe = ref([])
+
+const equipeMembres = computed(() => cabinetCollaborateurs.filter((c) => equipe.value.includes(c.initials)))
+const assignationOptions = computed(() => (equipe.value.length ? equipe.value : collaborateurs))
 
 const cycles = reactive([
   { code: 'A', libelle: 'Trésorerie et financement', risque: 'Élevé', assigneA: 'KAK', delai: 3 },
@@ -32,14 +36,36 @@ const cycles = reactive([
   { code: 'G', libelle: 'Fiscalité', risque: 'Élevé', assigneA: 'HBA', delai: 3 },
   { code: 'H', libelle: 'Capitaux propres', risque: 'Élevé', assigneA: 'HBA', delai: 3 },
 ])
+
+function creerEquipe() {
+  equipe.value = [...equipeSelectionnee.value]
+  showTeamPanel.value = false
+  if (equipe.value.length) {
+    for (const cycle of cycles) {
+      if (!equipe.value.includes(cycle.assigneA)) cycle.assigneA = equipe.value[0]
+    }
+  }
+}
 </script>
 
 <template>
   <div>
     <div class="mt-4 flex items-center justify-between">
-      <h1 class="text-lg font-extrabold text-[#0d3b56]">Repartition des cycles</h1>
+      <h1 class="text-lg font-extrabold text-[#0d3b56]">Répartition des cycles</h1>
 
-      <div class="relative">
+      <div class="flex items-center gap-4">
+        <div v-if="equipeMembres.length" class="flex items-center -space-x-2">
+          <span
+            v-for="membre in equipeMembres"
+            :key="membre.initials"
+            :title="membre.nom"
+            class="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-[#2f6fb0] text-xs font-bold text-white"
+          >
+            {{ membre.initials }}
+          </span>
+        </div>
+
+        <div class="relative">
         <button
           type="button"
           class="flex items-center gap-2 rounded-lg bg-[#0d3b56] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
@@ -97,12 +123,13 @@ const cycles = reactive([
             <button
               type="button"
               class="rounded-lg bg-[#0d3b56] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
-              @click="showTeamPanel = false"
+              @click="creerEquipe"
             >
               Créer l'équipe
             </button>
           </div>
         </div>
+      </div>
       </div>
     </div>
 
@@ -145,7 +172,7 @@ const cycles = reactive([
                   v-model="cycle.assigneA"
                   class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
                 >
-                  <option v-for="option in collaborateurs" :key="option" :value="option">{{ option }}</option>
+                  <option v-for="option in assignationOptions" :key="option" :value="option">{{ option }}</option>
                 </select>
               </div>
             </td>

@@ -1,0 +1,73 @@
+import { reactive } from 'vue'
+
+export const clients = reactive([
+  {
+    raisonSociale: 'Microsoft',
+    secteurActivite: 'Technologie',
+    formeJuridique: 'SA',
+    rccm: 'SDRE123',
+    compteContribuable: '9502712 K',
+    regimeFiscal: 'Réel normal',
+    adresse: '01 BP 453 Abidjan 01',
+    exerciceComptable: '01/01 – 31/12',
+    ville: 'New York',
+    contactPrincipal: 'M. Aka — Directeur général',
+    email: 'contact@microsoft.ci',
+    telephone: '+225 27 20 30 40 50',
+    missionsEnCours: 1,
+    missions: [
+      { exercice: '2025', phase: '4/5 · Révision', statut: 'En cours', rapport: null },
+      { exercice: '2024', phase: 'Clôturée', statut: 'Terminée', rapport: 'Rapport final' },
+      { exercice: '2023', phase: 'Clôturée', statut: 'Terminée', rapport: 'Avec observations' },
+    ],
+  },
+  {
+    raisonSociale: 'TEACH',
+    secteurActivite: 'Technologie',
+    formeJuridique: 'SARL',
+    rccm: 'CI-12',
+    compteContribuable: '',
+    regimeFiscal: '',
+    adresse: '',
+    exerciceComptable: '',
+    ville: 'Abidjan',
+    contactPrincipal: '',
+    email: '',
+    telephone: '',
+    missionsEnCours: 0,
+  },
+  {
+    raisonSociale: 'BibiTech',
+    secteurActivite: 'Technique',
+    formeJuridique: 'SARL',
+    rccm: 'CI-12',
+    compteContribuable: '',
+    regimeFiscal: '',
+    adresse: '',
+    exerciceComptable: '',
+    ville: '18000',
+    contactPrincipal: '',
+    email: '',
+    telephone: '',
+    missionsEnCours: 0,
+  },
+  {
+    raisonSociale: 'LEAN DISTRIBUTION',
+    secteurActivite: 'Télécommunications et TIC',
+    formeJuridique: 'SA',
+    rccm: 'CI-ABJ-2019-B-21427',
+    compteContribuable: '',
+    regimeFiscal: '',
+    adresse: '',
+    exerciceComptable: '',
+    ville: 'DIVO',
+    contactPrincipal: '',
+    email: '',
+    telephone: '',
+    missionsEnCours: 2,
+  },
+])
+
+export function addClient(client) {
+  clients.push({ missionsEnCours: 0, missions: [], ...client })
+}

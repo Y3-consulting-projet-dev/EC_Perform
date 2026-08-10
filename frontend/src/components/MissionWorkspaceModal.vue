@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import logo from '../assets/logo.y3.png'
 import ControleCoherence from './mission-steps/ControleCoherence.vue'
 import ControleIntangibilite from './mission-steps/ControleIntangibilite.vue'
@@ -74,17 +75,31 @@ watch(
   },
 )
 
+const router = useRouter()
+
 function close() {
   emit('update:modelValue', false)
+}
+
+function goHome() {
+  close()
+  router.push('/')
+}
+
+function goProfile() {
+  close()
+  router.push('/profil')
 }
 </script>
 
 <template>
   <div v-if="modelValue && client && mission" class="fixed inset-0 z-50 flex flex-col bg-[#eef2f6]">
     <header class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-8 py-4">
-      <img :src="logo" alt="Y3 Audit & Conseils" class="h-16 w-auto" />
+      <button type="button" @click="goHome">
+        <img :src="logo" alt="Y3 Audit & Conseils" class="h-16 w-auto" />
+      </button>
 
-      <div class="flex items-center gap-3">
+      <button type="button" class="flex items-center gap-3" @click="goProfile">
         <span
           class="flex h-10 w-10 items-center justify-center rounded-full bg-[#2f6fb0] text-sm font-semibold text-white"
         >
@@ -96,11 +111,11 @@ function close() {
           >
           <span class="block text-xs text-gray-400">{{ employee.grade }}</span>
         </span>
-      </div>
+      </button>
     </header>
 
     <div class="flex min-h-0 flex-1">
-      <aside class="flex w-72 shrink-0 flex-col gap-6 overflow-y-auto bg-[#0d3b56] px-4 py-6">
+      <aside class="flex w-64 shrink-0 flex-col gap-6 overflow-y-auto bg-[#0d3b56] px-4 py-6">
         <button
           type="button"
           class="flex w-fit items-center gap-2 rounded-lg bg-white/90 px-4 py-2 text-sm font-semibold text-[#0d3b56] transition hover:bg-white"
@@ -135,7 +150,7 @@ function close() {
         </div>
       </aside>
 
-      <main class="flex-1 overflow-y-auto p-8">
+      <main class="scrollbar-hide flex-1 overflow-y-auto p-8">
         <p class="text-sm font-semibold text-gray-500">
           Mission {{ client.raisonSociale }} · Exercice {{ mission.exercice }}
         </p>
@@ -147,3 +162,14 @@ function close() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+</style>

@@ -2,92 +2,25 @@
 import { computed, ref } from 'vue'
 import ClientDetailModal from '../components/ClientDetailModal.vue'
 import NewClientModal from '../components/NewClientModal.vue'
+import { addClient, clients } from '../stores/clients'
 
-const clients = ref([
-  {
-    raisonSociale: 'Microsoft',
-    secteurActivite: 'Technologie',
-    formeJuridique: 'SA',
-    rccm: 'SDRE123',
-    compteContribuable: '9502712 K',
-    regimeFiscal: 'Réel normal',
-    adresse: '01 BP 453 Abidjan 01',
-    exerciceComptable: '01/01 – 31/12',
-    ville: 'New York',
-    contactPrincipal: 'M. Aka — Directeur général',
-    email: 'contact@microsoft.ci',
-    telephone: '+225 27 20 30 40 50',
-    missionsEnCours: 1,
-    missions: [
-      { exercice: '2025', phase: '4/5 · Révision', statut: 'En cours', rapport: null },
-      { exercice: '2024', phase: 'Clôturée', statut: 'Terminée', rapport: 'Rapport final' },
-      { exercice: '2023', phase: 'Clôturée', statut: 'Terminée', rapport: 'Avec observations' },
-    ],
-  },
-  {
-    raisonSociale: 'TEACH',
-    secteurActivite: 'Technologie',
-    formeJuridique: 'SARL',
-    rccm: 'CI-12',
-    compteContribuable: '',
-    regimeFiscal: '',
-    adresse: '',
-    exerciceComptable: '',
-    ville: 'ABidjan',
-    contactPrincipal: '',
-    email: '',
-    telephone: '',
-    missionsEnCours: 0,
-  },
-  {
-    raisonSociale: 'BibiTech',
-    secteurActivite: 'Technique',
-    formeJuridique: 'SARL',
-    rccm: 'CI-12',
-    compteContribuable: '',
-    regimeFiscal: '',
-    adresse: '',
-    exerciceComptable: '',
-    ville: '18000',
-    contactPrincipal: '',
-    email: '',
-    telephone: '',
-    missionsEnCours: 0,
-  },
-  {
-    raisonSociale: 'LEAN DISTRIBUTION',
-    secteurActivite: 'Télécommunications et TIC',
-    formeJuridique: 'SA',
-    rccm: 'CI-ABJ-2019-B-21427',
-    compteContribuable: '',
-    regimeFiscal: '',
-    adresse: '',
-    exerciceComptable: '',
-    ville: 'DIVO',
-    contactPrincipal: '',
-    email: '',
-    telephone: '',
-    missionsEnCours: 2,
-  },
-])
-
-const secteurs = computed(() => ['Tous secteurs', ...new Set(clients.value.map((c) => c.secteurActivite))])
+const secteurs = computed(() => ['Tous secteurs', ...new Set(clients.map((c) => c.secteurActivite))])
 
 const search = ref('')
 const secteurFilter = ref('Tous secteurs')
 const showNewClientModal = ref(false)
 
+function handleClientCreated(form) {
+  addClient(form)
+}
+
 const filteredClients = computed(() =>
-  clients.value.filter((c) => {
+  clients.filter((c) => {
     const matchesSearch = c.raisonSociale.toLowerCase().includes(search.value.trim().toLowerCase())
     const matchesSecteur = secteurFilter.value === 'Tous secteurs' || c.secteurActivite === secteurFilter.value
     return matchesSearch && matchesSecteur
   }),
 )
-
-function handleClientCreated(form) {
-  clients.value.push({ ...form, missionsEnCours: 0, missions: [] })
-}
 
 const selectedClient = ref(null)
 const showClientDetail = ref(false)

@@ -20,16 +20,18 @@ function logout() {
 }
 
 const navItems = [
-  { label: 'Tableau de board', path: '/' },
+  { label: 'Tableau de bord', path: '/' },
   { label: 'Clients', path: '/clients' },
-  { label: 'Missions comptable', path: null },
+  { label: 'Missions comptable', path: '/missions' },
 ]
 </script>
 
 <template>
   <div class="flex h-screen flex-col bg-[#eef2f6]">
     <header class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-8 py-4">
-      <img :src="logo" alt="Y3 Audit & Conseils" class="h-16 w-auto" />
+      <RouterLink to="/">
+        <img :src="logo" alt="Y3 Audit & Conseils" class="h-16 w-auto" />
+      </RouterLink>
 
       <RouterLink to="/profil" class="flex items-center gap-3">
         <span
