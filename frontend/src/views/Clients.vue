@@ -1,75 +1,40 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import ClientDetailModal from '../components/ClientDetailModal.vue'
 import NewClientModal from '../components/NewClientModal.vue'
 
-const clients = ref([
-  {
-    raisonSociale: 'Microsoft',
-    secteurActivite: 'Technologie',
-    formeJuridique: 'SA',
-    rccm: 'SDRE123',
-    compteContribuable: '9502712 K',
-    regimeFiscal: 'Réel normal',
-    adresse: '01 BP 453 Abidjan 01',
-    exerciceComptable: '01/01 – 31/12',
-    ville: 'New York',
-    contactPrincipal: 'M. Aka — Directeur général',
-    email: 'contact@microsoft.ci',
-    telephone: '+225 27 20 30 40 50',
-    missionsEnCours: 1,
-    missions: [
-      { exercice: '2025', phase: '4/5 · Révision', statut: 'En cours', rapport: null },
-      { exercice: '2024', phase: 'Clôturée', statut: 'Terminée', rapport: 'Rapport final' },
-      { exercice: '2023', phase: 'Clôturée', statut: 'Terminée', rapport: 'Avec observations' },
-    ],
-  },
-  {
-    raisonSociale: 'TEACH',
-    secteurActivite: 'Technologie',
-    formeJuridique: 'SARL',
-    rccm: 'CI-12',
-    compteContribuable: '',
-    regimeFiscal: '',
-    adresse: '',
-    exerciceComptable: '',
-    ville: 'ABidjan',
-    contactPrincipal: '',
-    email: '',
-    telephone: '',
-    missionsEnCours: 0,
-  },
-  {
-    raisonSociale: 'BibiTech',
-    secteurActivite: 'Technique',
-    formeJuridique: 'SARL',
-    rccm: 'CI-12',
-    compteContribuable: '',
-    regimeFiscal: '',
-    adresse: '',
-    exerciceComptable: '',
-    ville: '18000',
-    contactPrincipal: '',
-    email: '',
-    telephone: '',
-    missionsEnCours: 0,
-  },
-  {
-    raisonSociale: 'LEAN DISTRIBUTION',
-    secteurActivite: 'Télécommunications et TIC',
-    formeJuridique: 'SA',
-    rccm: 'CI-ABJ-2019-B-21427',
-    compteContribuable: '',
-    regimeFiscal: '',
-    adresse: '',
-    exerciceComptable: '',
-    ville: 'DIVO',
-    contactPrincipal: '',
-    email: '',
-    telephone: '',
-    missionsEnCours: 2,
-  },
-])
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+  }
+}
+
+const clients = ref([])
+const loading = ref(false)
+const error = ref('')
+
+async function fetchClients() {
+  loading.value = true
+  error.value = ''
+  try {
+    const response = await fetch(`${apiUrl}/clients`, { headers: authHeaders() })
+    const data = await response.json()
+    if (!response.ok) {
+      error.value = data.detail ?? 'Une erreur est survenue.'
+      return
+    }
+    clients.value = data
+  } catch {
+    error.value = 'Impossible de contacter le serveur.'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(fetchClients)
 
 const secteurs = computed(() => ['Tous secteurs', ...new Set(clients.value.map((c) => c.secteurActivite))])
 
@@ -85,8 +50,8 @@ const filteredClients = computed(() =>
   }),
 )
 
-function handleClientCreated(form) {
-  clients.value.push({ ...form, missionsEnCours: 0, missions: [] })
+function handleClientCreated(client) {
+  clients.value.push(client)
 }
 
 const selectedClient = ref(null)
@@ -130,7 +95,9 @@ function openClientDetail(client) {
     </div>
 
     <div class="rounded-lg bg-white p-6 shadow-sm">
-      <table class="w-full text-left text-sm">
+      <p v-if="error" class="mb-4 text-sm text-red-600">{{ error }}</p>
+      <p v-if="loading" class="py-6 text-center text-sm text-gray-400">Chargement des clients...</p>
+      <table v-else class="w-full text-left text-sm">
         <thead>
           <tr class="text-sm text-[#0d3b56]">
             <th class="pb-3 font-bold">Entreprise</th>
@@ -141,7 +108,7 @@ function openClientDetail(client) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="client in filteredClients" :key="client.raisonSociale" class="border-t border-gray-100">
+          <tr v-for="client in filteredClients" :key="client.id" class="border-t border-gray-100">
             <td class="py-4 font-medium text-[#0d3b56]">{{ client.raisonSociale }}</td>
             <td class="py-4 text-gray-500">{{ client.secteurActivite }}</td>
             <td class="py-4 text-gray-500">{{ client.ville }}</td>
