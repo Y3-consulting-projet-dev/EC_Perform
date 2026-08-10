@@ -45,7 +45,7 @@ async function handleSaveProfile() {
   profileSuccess.value = ''
   savingProfile.value = true
   try {
-    const response = await fetch(`${apiUrl}/employees/me`, {
+    const response = await fetch(`${apiUrl}/users/me`, {
       method: 'PATCH',
       headers: authHeaders(),
       body: JSON.stringify({ nom: form.nom, prenoms: form.prenoms }),

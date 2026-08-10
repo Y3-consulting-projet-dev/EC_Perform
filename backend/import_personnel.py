@@ -5,7 +5,7 @@ from app.db import db
 
 CSV_PATH = Path(__file__).parent / "data" / "registre_personnel.csv"
 
-collection = db.employees
+collection = db.users
 collection.create_index("email", unique=True)
 
 inserted = 0

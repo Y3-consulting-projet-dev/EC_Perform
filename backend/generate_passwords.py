@@ -5,7 +5,7 @@ DEFAULT_PASSWORD = "Ycube@c2026"
 
 password_hash = hash_password(DEFAULT_PASSWORD)
 
-result = db.employees.update_many(
+result = db.users.update_many(
     {},
     {"$set": {"password_hash": password_hash, "must_change_password": False}},
 )
