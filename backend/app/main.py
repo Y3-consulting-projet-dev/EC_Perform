@@ -18,15 +18,15 @@ app.add_middleware(
 bearer_scheme = HTTPBearer()
 
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
+def get_current_employee(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
     try:
         email = decode_access_token(credentials.credentials)
     except Exception:
         raise HTTPException(status_code=401, detail="Session invalide ou expirée")
-    user = db.users.find_one({"email": email})
-    if user is None:
+    employee = db.employees.find_one({"email": email})
+    if employee is None:
         raise HTTPException(status_code=401, detail="Utilisateur introuvable")
-    return user
+    return employee
 
 
 class LoginRequest(BaseModel):
@@ -52,42 +52,42 @@ def health():
 
 @app.post("/auth/login")
 def login(payload: LoginRequest):
-    user = db.users.find_one({"email": payload.email.strip().lower()})
-    if user is None or not verify_password(payload.password, user["password_hash"]):
+    employee = db.employees.find_one({"email": payload.email.strip().lower()})
+    if employee is None or not verify_password(payload.password, employee["password_hash"]):
         raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
-    token = create_access_token(user["email"])
+    token = create_access_token(employee["email"])
     return {
         "access_token": token,
         "token_type": "bearer",
-        "must_change_password": user.get("must_change_password", False),
+        "must_change_password": employee.get("must_change_password", False),
         "employee": {
-            "nom": user["nom"],
-            "prenoms": user["prenoms"],
-            "grade": user["grade"],
-            "departement": user["departement"],
-            "email": user["email"],
+            "nom": employee["nom"],
+            "prenoms": employee["prenoms"],
+            "grade": employee["grade"],
+            "departement": employee["departement"],
+            "email": employee["email"],
         },
     }
 
 
 @app.post("/auth/change-password")
-def change_password(payload: ChangePasswordRequest, user=Depends(get_current_user)):
-    if not verify_password(payload.current_password, user["password_hash"]):
+def change_password(payload: ChangePasswordRequest, employee=Depends(get_current_employee)):
+    if not verify_password(payload.current_password, employee["password_hash"]):
         raise HTTPException(status_code=401, detail="Mot de passe actuel incorrect")
-    db.users.update_one(
-        {"_id": user["_id"]},
+    db.employees.update_one(
+        {"_id": employee["_id"]},
         {"$set": {"password_hash": hash_password(payload.new_password), "must_change_password": False}},
     )
     return {"status": "ok"}
 
 
-@app.patch("/users/me")
-def update_profile(payload: UpdateProfileRequest, user=Depends(get_current_user)):
-    db.users.update_one(
-        {"_id": user["_id"]},
+@app.patch("/employees/me")
+def update_profile(payload: UpdateProfileRequest, employee=Depends(get_current_employee)):
+    db.employees.update_one(
+        {"_id": employee["_id"]},
         {"$set": {"nom": payload.nom.strip(), "prenoms": payload.prenoms.strip()}},
     )
-    updated = db.users.find_one({"_id": user["_id"]})
+    updated = db.employees.find_one({"_id": employee["_id"]})
     return {
         "nom": updated["nom"],
         "prenoms": updated["prenoms"],

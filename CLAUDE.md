@@ -38,7 +38,7 @@ default) before the API will serve anything beyond static errors — `/health` c
 
 One-off data scripts (run from `backend/` with the venv active):
 - `init_db.py` — creates the database by inserting a placeholder doc into a `status` collection.
-- `import_personnel.py` — bulk-upserts employees into the `users` collection from
+- `import_personnel.py` — bulk-upserts employees into the `employees` collection from
   `backend/app/data/registre_personnel.csv` (semicolon-delimited, columns `NOM;PRENOMS;GRADE;DEPARTEMENT;Mail`).
   Creates a unique index on `email`.
 - `generate_passwords.py` — sets every employee's `password_hash` to the bcrypt hash of a single
@@ -69,7 +69,7 @@ Auth model: login issues a JWT keyed on email; the frontend stores the raw token
 object in `localStorage` and sends `Authorization: Bearer <token>` on subsequent requests. There is
 no refresh-token flow — the token simply expires after 8 hours and the user must log in again.
 
-The `users` collection (populated via `import_personnel.py`) is the only real data store in use;
+The `employees` collection (populated via `import_personnel.py`) is the only real data store in use;
 routes for clients/missions seen in the frontend (`Clients.vue`, `Home.vue` stats) are still
 frontend-only mock data with no corresponding backend collection or endpoints yet.
 
