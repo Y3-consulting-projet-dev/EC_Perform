@@ -1,15 +1,77 @@
 <script setup>
 import { computed, ref } from 'vue'
+import ClientDetailModal from '../components/ClientDetailModal.vue'
 import NewClientModal from '../components/NewClientModal.vue'
 
 const clients = ref([
-  { entreprise: 'Microsoft', secteur: 'Technologie', ville: 'New York', rccm: 'SDRE123' },
-  { entreprise: 'TEACH', secteur: 'Technologie', ville: 'ABidjan', rccm: 'CI-12' },
-  { entreprise: 'BibiTech', secteur: 'Technique', ville: '18000', rccm: 'CI-12' },
-  { entreprise: 'LEAN DISTRIBUTION', secteur: 'Télécommunications et TIC', ville: 'DIVO', rccm: 'CI-ABJ-2019-B-21427' },
+  {
+    raisonSociale: 'Microsoft',
+    secteurActivite: 'Technologie',
+    formeJuridique: 'SA',
+    rccm: 'SDRE123',
+    compteContribuable: '9502712 K',
+    regimeFiscal: 'Réel normal',
+    adresse: '01 BP 453 Abidjan 01',
+    exerciceComptable: '01/01 – 31/12',
+    ville: 'New York',
+    contactPrincipal: 'M. Aka — Directeur général',
+    email: 'contact@microsoft.ci',
+    telephone: '+225 27 20 30 40 50',
+    missionsEnCours: 1,
+    missions: [
+      { exercice: '2025', phase: '4/5 · Révision', statut: 'En cours', rapport: null },
+      { exercice: '2024', phase: 'Clôturée', statut: 'Terminée', rapport: 'Rapport final' },
+      { exercice: '2023', phase: 'Clôturée', statut: 'Terminée', rapport: 'Avec observations' },
+    ],
+  },
+  {
+    raisonSociale: 'TEACH',
+    secteurActivite: 'Technologie',
+    formeJuridique: 'SARL',
+    rccm: 'CI-12',
+    compteContribuable: '',
+    regimeFiscal: '',
+    adresse: '',
+    exerciceComptable: '',
+    ville: 'ABidjan',
+    contactPrincipal: '',
+    email: '',
+    telephone: '',
+    missionsEnCours: 0,
+  },
+  {
+    raisonSociale: 'BibiTech',
+    secteurActivite: 'Technique',
+    formeJuridique: 'SARL',
+    rccm: 'CI-12',
+    compteContribuable: '',
+    regimeFiscal: '',
+    adresse: '',
+    exerciceComptable: '',
+    ville: '18000',
+    contactPrincipal: '',
+    email: '',
+    telephone: '',
+    missionsEnCours: 0,
+  },
+  {
+    raisonSociale: 'LEAN DISTRIBUTION',
+    secteurActivite: 'Télécommunications et TIC',
+    formeJuridique: 'SA',
+    rccm: 'CI-ABJ-2019-B-21427',
+    compteContribuable: '',
+    regimeFiscal: '',
+    adresse: '',
+    exerciceComptable: '',
+    ville: 'DIVO',
+    contactPrincipal: '',
+    email: '',
+    telephone: '',
+    missionsEnCours: 2,
+  },
 ])
 
-const secteurs = computed(() => ['Tous secteurs', ...new Set(clients.value.map((c) => c.secteur))])
+const secteurs = computed(() => ['Tous secteurs', ...new Set(clients.value.map((c) => c.secteurActivite))])
 
 const search = ref('')
 const secteurFilter = ref('Tous secteurs')
@@ -17,19 +79,22 @@ const showNewClientModal = ref(false)
 
 const filteredClients = computed(() =>
   clients.value.filter((c) => {
-    const matchesSearch = c.entreprise.toLowerCase().includes(search.value.trim().toLowerCase())
-    const matchesSecteur = secteurFilter.value === 'Tous secteurs' || c.secteur === secteurFilter.value
+    const matchesSearch = c.raisonSociale.toLowerCase().includes(search.value.trim().toLowerCase())
+    const matchesSecteur = secteurFilter.value === 'Tous secteurs' || c.secteurActivite === secteurFilter.value
     return matchesSearch && matchesSecteur
   }),
 )
 
 function handleClientCreated(form) {
-  clients.value.push({
-    entreprise: form.raisonSociale,
-    secteur: form.secteurActivite,
-    ville: form.ville,
-    rccm: form.rccm,
-  })
+  clients.value.push({ ...form, missionsEnCours: 0, missions: [] })
+}
+
+const selectedClient = ref(null)
+const showClientDetail = ref(false)
+
+function openClientDetail(client) {
+  selectedClient.value = client
+  showClientDetail.value = true
 }
 </script>
 
@@ -76,15 +141,16 @@ function handleClientCreated(form) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="client in filteredClients" :key="client.entreprise" class="border-t border-gray-100">
-            <td class="py-4 font-medium text-[#0d3b56]">{{ client.entreprise }}</td>
-            <td class="py-4 text-gray-500">{{ client.secteur }}</td>
+          <tr v-for="client in filteredClients" :key="client.raisonSociale" class="border-t border-gray-100">
+            <td class="py-4 font-medium text-[#0d3b56]">{{ client.raisonSociale }}</td>
+            <td class="py-4 text-gray-500">{{ client.secteurActivite }}</td>
             <td class="py-4 text-gray-500">{{ client.ville }}</td>
             <td class="py-4 text-gray-500">{{ client.rccm }}</td>
             <td class="py-4">
               <button
                 type="button"
                 class="rounded-full bg-[#7cb342] px-5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#6ca038]"
+                @click="openClientDetail(client)"
               >
                 Voir
               </button>
@@ -98,5 +164,6 @@ function handleClientCreated(form) {
     </div>
 
     <NewClientModal v-model="showNewClientModal" @created="handleClientCreated" />
+    <ClientDetailModal v-model="showClientDetail" :client="selectedClient" />
   </div>
 </template>
