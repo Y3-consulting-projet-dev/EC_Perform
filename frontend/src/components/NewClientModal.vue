@@ -1,10 +1,19 @@
 <script setup>
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:modelValue', 'created'])
+
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+  }
+}
 
 const formesJuridiques = ['SARL', 'SA', 'SAS']
 
@@ -26,15 +35,36 @@ function emptyForm() {
 }
 
 const form = reactive(emptyForm())
+const saving = ref(false)
+const error = ref('')
 
 function close() {
+  error.value = ''
   emit('update:modelValue', false)
 }
 
-function handleSubmit() {
-  emit('created', { ...form })
-  Object.assign(form, emptyForm())
-  close()
+async function handleSubmit() {
+  error.value = ''
+  saving.value = true
+  try {
+    const response = await fetch(`${apiUrl}/clients`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ ...form }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      error.value = data.detail ?? 'Une erreur est survenue.'
+      return
+    }
+    emit('created', data)
+    Object.assign(form, emptyForm())
+    close()
+  } catch {
+    error.value = 'Impossible de contacter le serveur.'
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -216,6 +246,8 @@ function handleSubmit() {
           </div>
         </div>
 
+        <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+
         <div class="flex justify-end gap-3 pt-2">
           <button
             type="button"
@@ -226,9 +258,10 @@ function handleSubmit() {
           </button>
           <button
             type="submit"
-            class="rounded-full bg-[#7cb342] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6ca038]"
+            :disabled="saving"
+            class="rounded-full bg-[#7cb342] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6ca038] disabled:opacity-60"
           >
-            Enregistrer
+            {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
           </button>
         </div>
       </form>

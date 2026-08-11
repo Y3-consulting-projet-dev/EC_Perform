@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -7,7 +7,42 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue', 'created'])
 
-const collaborateurs = ['Stéphane GNAHOUA', 'Habib BA', 'Awa KOUAME', 'Jean Kouassi']
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+  }
+}
+
+const employees = ref([])
+
+async function fetchEmployees() {
+  try {
+    const response = await fetch(`${apiUrl}/employees`, { headers: authHeaders() })
+    if (!response.ok) return
+    employees.value = await response.json()
+  } catch {
+    // selects simply stay empty if the request fails
+  }
+}
+
+onMounted(fetchEmployees)
+
+function fullName(e) {
+  return `${e.prenoms} ${e.nom}`.trim()
+}
+
+const managers = computed(() =>
+  employees.value
+    .filter((e) => ['manager', 'senior manager'].includes((e.grade ?? '').trim().toLowerCase()))
+    .map(fullName),
+)
+
+const seniors = computed(() =>
+  employees.value.filter((e) => (e.grade ?? '').trim().toLowerCase() === 'senior').map(fullName),
+)
 
 function emptyForm() {
   return {
@@ -109,7 +144,7 @@ function handleSubmit() {
               class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
             >
               <option value="" disabled>Choisir</option>
-              <option v-for="name in collaborateurs" :key="name" :value="name">{{ name }}</option>
+              <option v-for="name in managers" :key="name" :value="name">{{ name }}</option>
             </select>
           </div>
 
@@ -118,9 +153,8 @@ function handleSubmit() {
             <input
               id="mission-date-debut"
               v-model="form.dateDebut"
-              type="text"
-              placeholder="JJ/MM/AAAA"
-              class="w-full rounded-xl border border-[#7cb342] bg-[#eef1ec] px-4 py-2.5 text-sm text-[#0d3b56] placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#7cb342]"
+              type="date"
+              class="w-full rounded-xl border border-[#7cb342] bg-[#eef1ec] px-4 py-2.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
             />
           </div>
           <div>
@@ -131,31 +165,18 @@ function handleSubmit() {
               class="w-full rounded-xl border border-[#7cb342] bg-white px-4 py-2.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
             >
               <option value="" disabled>Choisir</option>
-              <option v-for="name in collaborateurs" :key="name" :value="name">{{ name }}</option>
+              <option v-for="name in seniors" :key="name" :value="name">{{ name }}</option>
             </select>
           </div>
 
           <div>
             <label for="mission-echeance" class="mb-1 block text-sm font-bold text-[#0d3b56]">Échéance</label>
-            <div class="relative">
-              <input
-                id="mission-echeance"
-                v-model="form.echeance"
-                type="text"
-                placeholder="JJ/MM/AAAA"
-                class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 pr-10 text-sm text-[#0d3b56] placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#7cb342]"
-              />
-              <svg
-                viewBox="0 0 24 24"
-                class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <rect x="3" y="5" width="18" height="16" rx="2" />
-                <path stroke-linecap="round" d="M8 3v4M16 3v4M3 10h18" />
-              </svg>
-            </div>
+            <input
+              id="mission-echeance"
+              v-model="form.echeance"
+              type="date"
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
+            />
           </div>
           <div>
             <label for="mission-duree" class="mb-1 block text-sm font-bold text-[#0d3b56]"

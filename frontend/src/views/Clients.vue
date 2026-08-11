@@ -1,26 +1,58 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import ClientDetailModal from '../components/ClientDetailModal.vue'
 import NewClientModal from '../components/NewClientModal.vue'
-import { addClient, clients } from '../stores/clients'
 
-const secteurs = computed(() => ['Tous secteurs', ...new Set(clients.map((c) => c.secteurActivite))])
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+  }
+}
+
+const clients = ref([])
+const loading = ref(false)
+const error = ref('')
+
+async function fetchClients() {
+  loading.value = true
+  error.value = ''
+  try {
+    const response = await fetch(`${apiUrl}/clients`, { headers: authHeaders() })
+    const data = await response.json()
+    if (!response.ok) {
+      error.value = data.detail ?? 'Une erreur est survenue.'
+      return
+    }
+    clients.value = data
+  } catch {
+    error.value = 'Impossible de contacter le serveur.'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(fetchClients)
+
+const secteurs = computed(() => ['Tous secteurs', ...new Set(clients.value.map((c) => c.secteurActivite))])
 
 const search = ref('')
 const secteurFilter = ref('Tous secteurs')
 const showNewClientModal = ref(false)
 
-function handleClientCreated(form) {
-  addClient(form)
-}
-
 const filteredClients = computed(() =>
-  clients.filter((c) => {
+  clients.value.filter((c) => {
     const matchesSearch = c.raisonSociale.toLowerCase().includes(search.value.trim().toLowerCase())
     const matchesSecteur = secteurFilter.value === 'Tous secteurs' || c.secteurActivite === secteurFilter.value
     return matchesSearch && matchesSecteur
   }),
 )
+
+function handleClientCreated(client) {
+  clients.value.push(client)
+}
 
 const selectedClient = ref(null)
 const showClientDetail = ref(false)
@@ -63,7 +95,9 @@ function openClientDetail(client) {
     </div>
 
     <div class="rounded-lg bg-white p-6 shadow-sm">
-      <table class="w-full text-left text-sm">
+      <p v-if="error" class="mb-4 text-sm text-red-600">{{ error }}</p>
+      <p v-if="loading" class="py-6 text-center text-sm text-gray-400">Chargement des clients...</p>
+      <table v-else class="w-full text-left text-sm">
         <thead>
           <tr class="text-sm text-[#0d3b56]">
             <th class="pb-3 font-bold">Entreprise</th>
@@ -74,7 +108,7 @@ function openClientDetail(client) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="client in filteredClients" :key="client.raisonSociale" class="border-t border-gray-100">
+          <tr v-for="client in filteredClients" :key="client.id" class="border-t border-gray-100">
             <td class="py-4 font-medium text-[#0d3b56]">{{ client.raisonSociale }}</td>
             <td class="py-4 text-gray-500">{{ client.secteurActivite }}</td>
             <td class="py-4 text-gray-500">{{ client.ville }}</td>
