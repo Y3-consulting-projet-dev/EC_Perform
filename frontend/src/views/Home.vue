@@ -1,9 +1,41 @@
 <script setup>
-const stats = [
-  { value: '144', label: 'Clients enregistrés', delta: '▲ +2 ce trimestre' },
+import { computed, onMounted, ref } from 'vue'
+
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+  }
+}
+
+const clientStats = ref({ total: null, newLastThreeMonths: null })
+
+async function fetchClientStats() {
+  try {
+    const response = await fetch(`${apiUrl}/clients/stats`, { headers: authHeaders() })
+    if (!response.ok) return
+    clientStats.value = await response.json()
+  } catch {
+    // stat card falls back to a placeholder below
+  }
+}
+
+onMounted(fetchClientStats)
+
+const stats = computed(() => [
+  {
+    value: clientStats.value.total === null ? '—' : String(clientStats.value.total),
+    label: 'Clients enregistrés',
+    delta:
+      clientStats.value.newLastThreeMonths === null
+        ? ''
+        : `▲ +${clientStats.value.newLastThreeMonths} ce trimestre`,
+  },
   { value: '18', label: 'Missions en cours', delta: '▲ +3 vs le mois dernier' },
   { value: '8', label: 'Missions terminés (2026)', delta: '▲ +91% dans les délais' },
-]
+])
 
 const missionPhases = [
   { value: 4, label: 'Ouverture et collecte' },
