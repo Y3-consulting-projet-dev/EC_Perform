@@ -225,6 +225,75 @@ def mission_stats(employee=Depends(get_current_employee)):
     return {"enCours": en_cours, "deltaVsLastMonth": this_month - last_month}
 
 
+def _parse_date(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+@app.get("/missions")
+def list_missions(employee=Depends(get_current_employee)):
+    clients_by_id = {str(c["_id"]): c for c in db.clients.find()}
+    managers_by_name = {}
+    for e in db.employees.find():
+        full_name = f"{e.get('prenoms', '')} {e.get('nom', '')}".strip()
+        managers_by_name[full_name] = e
+
+    today = datetime.now(timezone.utc).date()
+    missions = []
+    for m in db.missions.find():
+        client = clients_by_id.get(m.get("clientId"))
+        client_name = ""
+        if client:
+            client_name = client.get("raisonSociale") or client.get("company_name") or ""
+
+        manager = managers_by_name.get(m.get("manager", ""))
+        manager_grade = manager.get("grade", "") if manager else ""
+
+        date_debut = _parse_date(m.get("dateDebut"))
+        echeance = _parse_date(m.get("echeance"))
+
+        duree_semaines = None
+        if date_debut and echeance:
+            duree_semaines = max(0, round((echeance - date_debut).days / 7))
+
+        if date_debut and today < date_debut:
+            statut = "Pas encore commencée"
+        elif echeance and today > echeance:
+            statut = "Terminée"
+        else:
+            statut = "En cours"
+
+        progression = 0
+        if statut == "Terminée":
+            progression = 100
+        elif date_debut and echeance and echeance > date_debut:
+            total_days = (echeance - date_debut).days
+            elapsed_days = (today - date_debut).days
+            progression = round(max(0, min(100, elapsed_days / total_days * 100)))
+
+        missions.append(
+            {
+                "id": str(m["_id"]),
+                "client": client_name,
+                "exercice": m.get("exercice", ""),
+                "dateDebut": m.get("dateDebut", ""),
+                "echeance": m.get("echeance", ""),
+                "dureeSemaines": duree_semaines,
+                "manager": m.get("manager", ""),
+                "managerGrade": manager_grade,
+                "statut": statut,
+                "progression": progression,
+            }
+        )
+
+    missions.sort(key=lambda x: x["client"].lower())
+    return missions
+
+
 @app.get("/clients")
 def list_clients(employee=Depends(get_current_employee)):
     clients = [serialize_client(c) for c in db.clients.find()]

@@ -1,49 +1,61 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import MissionWorkspaceModal from '../components/MissionWorkspaceModal.vue'
 
-const missions = [
-  {
-    client: 'Microsoft',
-    mandat: '2026 -> 2026',
-    responsable: 'Stéphanie Axelle Kotie AMANI',
-    role: 'Auditeur - Senior Manager',
-    statut: '-',
-    progression: 0,
-  },
-  {
-    client: 'Microsoft',
-    mandat: '2026 -> 2026',
-    responsable: "Verane N'Gouan",
-    role: 'Auditeur - Directeur',
-    statut: '-',
-    progression: 0,
-  },
-  {
-    client: 'Microsoft',
-    mandat: '2026 -> 2026',
-    responsable: "Verane N'Gouan",
-    role: 'Auditeur - Directeur',
-    statut: '-',
-    progression: 0,
-  },
-]
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+  }
+}
+
+const missions = ref([])
+const loading = ref(false)
+const error = ref('')
+
+async function fetchMissions() {
+  loading.value = true
+  error.value = ''
+  try {
+    const response = await fetch(`${apiUrl}/missions`, { headers: authHeaders() })
+    const data = await response.json()
+    if (!response.ok) {
+      error.value = data.detail ?? 'Une erreur est survenue.'
+      return
+    }
+    missions.value = data
+  } catch {
+    error.value = 'Impossible de contacter le serveur.'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(fetchMissions)
 
 const search = ref('')
 
 const filteredMissions = computed(() =>
-  missions.filter((m) => m.client.toLowerCase().includes(search.value.trim().toLowerCase())),
+  missions.value.filter((m) => m.client.toLowerCase().includes(search.value.trim().toLowerCase())),
 )
+
+const statutStyles = {
+  'En cours': 'bg-sky-100 text-sky-700',
+  Terminée: 'bg-[#7cb342] text-white',
+  'Pas encore commencée': 'bg-gray-100 text-gray-500',
+}
 
 const showExportMenu = ref(false)
 
 function exportExcel() {
-  const headers = ['Client', 'Mandat', 'Responsable', 'Fonction', 'Statut', 'Progression']
+  const headers = ['Client', 'Durée', 'Responsable', 'Grade', 'Statut', 'Progression']
   const rows = filteredMissions.value.map((m) => [
     m.client,
-    m.mandat,
-    m.responsable,
-    m.role,
+    dureeLabel(m),
+    m.manager,
+    m.managerGrade,
     m.statut,
     `${m.progression}%`,
   ])
@@ -65,13 +77,32 @@ function exportPdf() {
   window.print()
 }
 
+function dureeLabel(mission) {
+  if (mission.dureeSemaines === null || mission.dureeSemaines === undefined) return '-'
+  return `${mission.dureeSemaines} semaine${mission.dureeSemaines > 1 ? 's' : ''}`
+}
+
+function formatDate(value) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toLocaleDateString('fr-FR')
+}
+
+function dureeTitle(mission) {
+  const debut = formatDate(mission.dateDebut)
+  const fin = formatDate(mission.echeance)
+  if (!debut || !fin) return ''
+  return `Du ${debut} au ${fin}`
+}
+
 const showWorkspace = ref(false)
 const selectedClient = ref(null)
 const selectedMission = ref(null)
 
 function openMissionProcess(mission) {
   selectedClient.value = { raisonSociale: mission.client }
-  selectedMission.value = { exercice: mission.mandat.split('->').pop().trim() }
+  selectedMission.value = { exercice: mission.exercice }
   showWorkspace.value = true
 }
 </script>
@@ -148,40 +179,52 @@ function openMissionProcess(mission) {
         <thead>
           <tr class="bg-gray-50 text-sm font-bold text-[#0d3b56]">
             <th class="px-6 py-4">Client</th>
-            <th class="px-6 py-4">Mandat</th>
+            <th class="px-6 py-4">Durée</th>
             <th class="px-6 py-4">Responsable</th>
             <th class="px-6 py-4">Statut</th>
             <th class="px-6 py-4">Progression</th>
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="(mission, index) in filteredMissions"
-            :key="index"
-            class="cursor-pointer border-t border-gray-100 transition hover:bg-gray-50"
-            @click="openMissionProcess(mission)"
-          >
-            <td class="px-6 py-4 text-[#0d3b56]">{{ mission.client }}</td>
-            <td class="px-6 py-4 text-gray-500">{{ mission.mandat }}</td>
-            <td class="px-6 py-4">
-              <p class="font-bold text-[#0d3b56]">{{ mission.responsable }}</p>
-              <p class="text-xs text-gray-400">{{ mission.role }}</p>
-            </td>
-            <td class="px-6 py-4 text-gray-400">{{ mission.statut }}</td>
-            <td class="px-6 py-4">
-              <div class="flex items-center gap-3">
-                <div class="h-1.5 max-w-[220px] flex-1 overflow-hidden rounded-full bg-gray-200">
-                  <div class="h-full rounded-full bg-[#7cb342]" :style="{ width: mission.progression + '%' }"></div>
+          <tr v-if="loading">
+            <td colspan="5" class="px-6 py-6 text-center text-sm text-gray-400">Chargement des missions...</td>
+          </tr>
+          <tr v-else-if="error">
+            <td colspan="5" class="px-6 py-6 text-center text-sm text-red-600">{{ error }}</td>
+          </tr>
+          <template v-else>
+            <tr
+              v-for="mission in filteredMissions"
+              :key="mission.id"
+              class="cursor-pointer border-t border-gray-100 transition hover:bg-gray-50"
+              @click="openMissionProcess(mission)"
+            >
+              <td class="px-6 py-4 text-[#0d3b56]">{{ mission.client }}</td>
+              <td class="px-6 py-4 text-gray-500" :title="dureeTitle(mission)">{{ dureeLabel(mission) }}</td>
+              <td class="px-6 py-4">
+                <p class="font-bold text-[#0d3b56]">{{ mission.manager }}</p>
+                <p class="text-xs text-gray-400">{{ mission.managerGrade }}</p>
+              </td>
+              <td class="px-6 py-4">
+                <span class="rounded-full px-3 py-1 text-xs font-semibold" :class="statutStyles[mission.statut]">
+                  {{ mission.statut }}
+                </span>
+              </td>
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                  <div class="h-1.5 max-w-[220px] flex-1 overflow-hidden rounded-full bg-gray-200">
+                    <div class="h-full rounded-full bg-[#7cb342]" :style="{ width: mission.progression + '%' }"></div>
+                  </div>
+                  <span class="text-xs text-gray-500">{{ mission.progression }}%</span>
                 </div>
-                <span class="text-xs text-gray-500">{{ mission.progression }}%</span>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="filteredMissions.length === 0">
-            <td colspan="5" class="px-6 py-6 text-center text-sm text-gray-400">
-              Aucune mission ne correspond à la recherche.
-            </td>
-          </tr>
+              </td>
+            </tr>
+            <tr v-if="filteredMissions.length === 0">
+              <td colspan="5" class="px-6 py-6 text-center text-sm text-gray-400">
+                Aucune mission ne correspond à la recherche.
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
 
