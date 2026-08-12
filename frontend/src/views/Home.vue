@@ -11,6 +11,7 @@ function authHeaders() {
 }
 
 const clientStats = ref({ total: null, newLastThreeMonths: null })
+const missionStats = ref({ enCours: null, deltaVsLastMonth: null })
 
 async function fetchClientStats() {
   try {
@@ -22,7 +23,27 @@ async function fetchClientStats() {
   }
 }
 
-onMounted(fetchClientStats)
+async function fetchMissionStats() {
+  try {
+    const response = await fetch(`${apiUrl}/missions/stats`, { headers: authHeaders() })
+    if (!response.ok) return
+    missionStats.value = await response.json()
+  } catch {
+    // stat card falls back to a placeholder below
+  }
+}
+
+onMounted(() => {
+  fetchClientStats()
+  fetchMissionStats()
+})
+
+function missionsDelta() {
+  const delta = missionStats.value.deltaVsLastMonth
+  if (delta === null) return ''
+  if (delta < 0) return `▼ ${delta} vs le mois dernier`
+  return `▲ +${delta} vs le mois dernier`
+}
 
 const stats = computed(() => [
   {
@@ -33,7 +54,11 @@ const stats = computed(() => [
         ? ''
         : `▲ +${clientStats.value.newLastThreeMonths} ce trimestre`,
   },
-  { value: '18', label: 'Missions en cours', delta: '▲ +3 vs le mois dernier' },
+  {
+    value: missionStats.value.enCours === null ? '—' : String(missionStats.value.enCours),
+    label: 'Missions en cours',
+    delta: missionsDelta(),
+  },
   { value: '8', label: 'Missions terminés (2026)', delta: '▲ +91% dans les délais' },
 ])
 
@@ -84,7 +109,12 @@ const todos = [
       <div v-for="stat in stats" :key="stat.label" class="rounded-lg bg-[#0d3b56] p-6 text-white">
         <p class="text-3xl font-extrabold">{{ stat.value }}</p>
         <p class="mt-1 text-sm text-gray-200">{{ stat.label }}</p>
-        <p class="mt-3 text-xs font-medium text-green-400">{{ stat.delta }}</p>
+        <p
+          class="mt-3 text-xs font-medium"
+          :class="stat.delta.startsWith('▼') ? 'text-red-400' : 'text-green-400'"
+        >
+          {{ stat.delta }}
+        </p>
       </div>
     </div>
 
