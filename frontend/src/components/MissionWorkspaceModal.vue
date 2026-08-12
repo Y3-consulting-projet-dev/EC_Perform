@@ -5,7 +5,7 @@ import logo from '../assets/logo.y3.png'
 import ControleCoherence from './mission-steps/ControleCoherence.vue'
 import ControleIntangibilite from './mission-steps/ControleIntangibilite.vue'
 import DecoupageCycles from './mission-steps/DecoupageCycles.vue'
-import EtapeGenerique from './mission-steps/EtapeGenerique.vue'
+import EnDeveloppement from './mission-steps/EnDeveloppement.vue'
 import GenerationLeads from './mission-steps/GenerationLeads.vue'
 import OuvertureCollecte from './mission-steps/OuvertureCollecte.vue'
 import RepartitionCycles from './mission-steps/RepartitionCycles.vue'
@@ -52,7 +52,24 @@ const phaseGroups = [
       { id: 'lead-cycle', label: 'Lead du cycle' },
       { id: 'justification-solde', label: 'Justification du solde' },
       { id: 'controle-detaille', label: 'Contrôle détaillé' },
+      { id: 'constats-risques', label: 'Constats / risques' },
+      { id: 'conclusion-cycle', label: 'Conclusion du cycle' },
     ],
+  },
+  {
+    title: 'Phase 5 – Revue',
+    steps: [{ id: 'revue-multi-niveaux', label: 'Revue multi-niveaux' }],
+  },
+  {
+    title: 'Phase 6 – Restitution client',
+    steps: [
+      { id: 'restitution-client', label: 'Restitution client' },
+      { id: 'emission-rapport-final', label: 'Émission du rapport final' },
+    ],
+  },
+  {
+    title: 'Phase 7 – Archivage',
+    steps: [{ id: 'archivage', label: 'Archivage' }],
   },
 ]
 
@@ -66,7 +83,7 @@ const stepComponents = {
 }
 
 const activeStepId = ref(phaseGroups[0].steps[0].id)
-const activeStepComponent = computed(() => stepComponents[activeStepId.value] ?? EtapeGenerique)
+const activeStepComponent = computed(() => stepComponents[activeStepId.value] ?? EnDeveloppement)
 
 watch(
   () => props.modelValue,
