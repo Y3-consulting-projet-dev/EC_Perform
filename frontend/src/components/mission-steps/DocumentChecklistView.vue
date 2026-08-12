@@ -10,12 +10,19 @@ const progressPercent = computed(() =>
 )
 
 const statutStyles = {
+  'En attente de livraison': 'bg-gray-100 text-gray-600',
   'Partiellement reçu': 'bg-amber-100 text-amber-700',
   Reçu: 'bg-[#7cb342] text-white',
 }
 
 const statutOptions = ['En attente de livraison', 'Partiellement reçu', 'Reçu']
 const NEW_CATEGORY = '__new__'
+
+function updateDocStatut(doc, newStatut) {
+  if (doc.statut === 'Reçu' && newStatut !== 'Reçu') props.checklist.recus -= 1
+  if (doc.statut !== 'Reçu' && newStatut === 'Reçu') props.checklist.recus += 1
+  doc.statut = newStatut
+}
 
 const showInsertDocument = ref(false)
 const insertForm = reactive({
@@ -26,6 +33,11 @@ const insertForm = reactive({
   dateDemande: '',
   statut: 'En attente de livraison',
 })
+const selectedFile = ref(null)
+
+function handleFileChange(event) {
+  selectedFile.value = event.target.files[0] ?? null
+}
 
 function openInsertDocument() {
   insertForm.categorie = props.checklist.categories[0]?.title ?? NEW_CATEGORY
@@ -34,6 +46,7 @@ function openInsertDocument() {
   insertForm.version = 'Electronique'
   insertForm.dateDemande = ''
   insertForm.statut = 'En attente de livraison'
+  selectedFile.value = null
   showInsertDocument.value = true
 }
 
@@ -60,6 +73,8 @@ function handleInsertDocument() {
     dateDemande: insertForm.dateDemande.trim() || '—',
     dateReception: '—',
     statut: insertForm.statut,
+    fileName: selectedFile.value?.name ?? null,
+    fileUrl: selectedFile.value ? URL.createObjectURL(selectedFile.value) : null,
   })
 
   props.checklist.total += 1
@@ -124,19 +139,33 @@ function handleInsertDocument() {
             </tr>
             <tr v-for="doc in category.documents" :key="doc.n" class="border-t border-gray-100">
               <td class="px-4 py-3 text-gray-500">{{ doc.n }}</td>
-              <td class="px-4 py-3 font-medium text-[#0d3b56]">{{ doc.description }}</td>
+              <td class="px-4 py-3 font-medium text-[#0d3b56]">
+                <a
+                  v-if="doc.fileUrl"
+                  :href="doc.fileUrl"
+                  :download="doc.fileName"
+                  class="flex items-center gap-1.5 text-[#2f6fb0] hover:underline"
+                  target="_blank"
+                >
+                  <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.44 11.05 12.25 20.24a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.48" />
+                  </svg>
+                  {{ doc.description }}
+                </a>
+                <span v-else>{{ doc.description }}</span>
+              </td>
               <td class="px-4 py-3 text-gray-500">{{ doc.version }}</td>
               <td class="px-4 py-3 text-gray-500">{{ doc.dateDemande }}</td>
               <td class="px-4 py-3 text-gray-500">{{ doc.dateReception }}</td>
               <td class="px-4 py-3">
-                <span
-                  v-if="statutStyles[doc.statut]"
-                  class="rounded-full px-3 py-1 text-xs font-semibold"
-                  :class="statutStyles[doc.statut]"
+                <select
+                  :value="doc.statut"
+                  class="appearance-none rounded-full px-3 py-1 text-xs font-semibold outline-none"
+                  :class="statutStyles[doc.statut] ?? 'bg-gray-100 text-gray-600'"
+                  @change="updateDocStatut(doc, $event.target.value)"
                 >
-                  {{ doc.statut }}
-                </span>
-                <span v-else class="text-gray-500">{{ doc.statut }}</span>
+                  <option v-for="option in statutOptions" :key="option" :value="option">{{ option }}</option>
+                </select>
               </td>
             </tr>
           </template>
@@ -198,6 +227,17 @@ function handleInsertDocument() {
               placeholder="Ex. : Relevé bancaire 2024"
               class="w-full rounded-xl border border-[#7cb342] bg-[#eef1ec] px-4 py-2.5 text-sm text-[#0d3b56] placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#7cb342]"
             />
+          </div>
+
+          <div>
+            <label for="doc-fichier" class="mb-1 block text-sm font-bold text-[#0d3b56]">Fichier</label>
+            <input
+              id="doc-fichier"
+              type="file"
+              class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#0d3b56] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-[#7cb342] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+              @change="handleFileChange"
+            />
+            <p v-if="selectedFile" class="mt-1 text-xs text-gray-500">{{ selectedFile.name }}</p>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
