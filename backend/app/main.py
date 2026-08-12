@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from bson import ObjectId
+from bson.errors import InvalidId
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -60,6 +61,36 @@ class ClientCreateRequest(BaseModel):
     contactPrincipal: str = ""
     email: str = ""
     telephone: str = ""
+
+
+class MissionCreateRequest(BaseModel):
+    clientId: str
+    exercice: str
+    phase: str = "1/7 · Ouverture et collecte"
+    statut: str = "En cours"
+    rapport: str | None = None
+    dateDebut: str
+    echeance: str
+    manager: str = ""
+    senior: str = ""
+
+
+def serialize_mission(doc):
+    created_at = doc.get("createdAt")
+    return {
+        "id": str(doc["_id"]),
+        "clientId": doc["clientId"],
+        "exercice": doc.get("exercice", ""),
+        "phase": doc.get("phase", ""),
+        "statut": doc.get("statut", ""),
+        "rapport": doc.get("rapport"),
+        "dateDebut": doc.get("dateDebut", ""),
+        "echeance": doc.get("echeance", ""),
+        "manager": doc.get("manager", ""),
+        "senior": doc.get("senior", ""),
+        "createdBy": doc.get("createdBy", {}),
+        "createdAt": created_at.isoformat() if created_at else None,
+    }
 
 
 def serialize_client(doc):
@@ -177,10 +208,35 @@ def client_stats(employee=Depends(get_current_employee)):
     return {"total": total, "newLastThreeMonths": new_last_three_months}
 
 
+@app.get("/missions/stats")
+def mission_stats(employee=Depends(get_current_employee)):
+    en_cours = db.missions.count_documents({"statut": "En cours"})
+
+    now = datetime.now(timezone.utc)
+    start_this_month = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    if now.month == 1:
+        start_last_month = datetime(now.year - 1, 12, 1, tzinfo=timezone.utc)
+    else:
+        start_last_month = datetime(now.year, now.month - 1, 1, tzinfo=timezone.utc)
+
+    this_month = db.missions.count_documents({"createdAt": {"$gte": start_this_month}})
+    last_month = db.missions.count_documents({"createdAt": {"$gte": start_last_month, "$lt": start_this_month}})
+
+    return {"enCours": en_cours, "deltaVsLastMonth": this_month - last_month}
+
+
 @app.get("/clients")
 def list_clients(employee=Depends(get_current_employee)):
     clients = [serialize_client(c) for c in db.clients.find()]
     clients.sort(key=lambda c: c["raisonSociale"].lower())
+
+    missions_by_client = {}
+    for m in db.missions.find():
+        missions_by_client.setdefault(m["clientId"], []).append(serialize_mission(m))
+    for c in clients:
+        c["missions"] = missions_by_client.get(c["id"], [])
+        c["missionsEnCours"] = sum(1 for m in c["missions"] if m["statut"] == "En cours")
+
     return clients
 
 
@@ -192,3 +248,24 @@ def create_client(payload: ClientCreateRequest, employee=Depends(get_current_emp
     result = db.clients.insert_one(doc)
     created = db.clients.find_one({"_id": result.inserted_id})
     return serialize_client(created)
+
+
+@app.post("/missions", status_code=201)
+def create_mission(payload: MissionCreateRequest, employee=Depends(get_current_employee)):
+    try:
+        client_object_id = ObjectId(payload.clientId)
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Client invalide")
+    if db.clients.find_one({"_id": client_object_id}) is None:
+        raise HTTPException(status_code=404, detail="Client introuvable")
+
+    doc = payload.model_dump()
+    doc["createdBy"] = {
+        "id": str(employee["_id"]),
+        "nom": employee["nom"],
+        "prenoms": employee["prenoms"],
+    }
+    doc["createdAt"] = datetime.now(timezone.utc)
+    result = db.missions.insert_one(doc)
+    created = db.missions.find_one({"_id": result.inserted_id})
+    return serialize_mission(created)
