@@ -22,17 +22,17 @@ const router = createRouter({
           name: 'clients',
           component: () => import('../views/Clients.vue'),
         },
+        {
+          path: 'missions',
+          name: 'missions',
+          component: () => import('../views/Missions.vue'),
+        },
       ],
     },
     {
       path: '/profil',
       name: 'profile',
       component: () => import('../views/Profile.vue'),
-    },
-    {
-      path: '/missions',
-      name: 'missions',
-      component: () => import('../views/Missions.vue'),
     },
   ],
 })
