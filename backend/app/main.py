@@ -1,9 +1,14 @@
+import mimetypes
+import os
+import re
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from bson import ObjectId
 from bson.errors import InvalidId
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
@@ -18,6 +23,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+UPLOADS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads"))
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+INLINE_MIME_TYPES = {"application/pdf"}
 
 bearer_scheme = HTTPBearer()
 
@@ -75,6 +85,40 @@ class MissionCreateRequest(BaseModel):
     senior: str = ""
 
 
+class MissionCloseRequest(BaseModel):
+    dateFin: str | None = None
+
+
+class DocumentStatusUpdate(BaseModel):
+    statut: str
+
+
+DEFAULT_DOCUMENT_CATEGORIES = [
+    "DOCUMENT GENERAUX DE LA SOCIETE",
+    "OPERATIONS DE TRESORERIE",
+    "ACHATS ET VENTES/PRESTATIONS",
+    "GESTION DE LA PAIE",
+    "CADRE FISCALE ET SOCIALE",
+]
+
+
+def _default_documents():
+    return {"categories": [{"title": title, "documents": []} for title in DEFAULT_DOCUMENT_CATEGORIES]}
+
+
+def serialize_documents(mission_doc):
+    documents = mission_doc.get("documents") or _default_documents()
+    categories = documents.get("categories", [])
+    total = sum(len(c.get("documents", [])) for c in categories)
+    recus = sum(1 for c in categories for d in c.get("documents", []) if d.get("statut") == "Reçu")
+    return {
+        "recus": recus,
+        "total": total,
+        "categories": categories,
+        "phase": mission_doc.get("phase", ""),
+    }
+
+
 def serialize_mission(doc):
     created_at = doc.get("createdAt")
     return {
@@ -82,15 +126,26 @@ def serialize_mission(doc):
         "clientId": doc["clientId"],
         "exercice": doc.get("exercice", ""),
         "phase": doc.get("phase", ""),
+        "phaseStep": _mission_step(doc),
         "statut": doc.get("statut", ""),
         "rapport": doc.get("rapport"),
         "dateDebut": doc.get("dateDebut", ""),
         "echeance": doc.get("echeance", ""),
+        "dateFinReelle": doc.get("dateFinReelle"),
         "manager": doc.get("manager", ""),
         "senior": doc.get("senior", ""),
         "createdBy": doc.get("createdBy", {}),
         "createdAt": created_at.isoformat() if created_at else None,
     }
+
+
+def _parse_date(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
 
 
 def serialize_client(doc):
@@ -222,16 +277,27 @@ def mission_stats(employee=Depends(get_current_employee)):
     this_month = db.missions.count_documents({"createdAt": {"$gte": start_this_month}})
     last_month = db.missions.count_documents({"createdAt": {"$gte": start_last_month, "$lt": start_this_month}})
 
-    return {"enCours": en_cours, "deltaVsLastMonth": this_month - last_month}
+    terminees_cette_annee = []
+    for m in db.missions.find({"statut": "Terminée"}):
+        date_fin = _parse_date(m.get("dateFinReelle"))
+        if date_fin and date_fin.year == now.year:
+            terminees_cette_annee.append(m)
 
+    total_terminees = len(terminees_cette_annee)
+    dans_les_delais = sum(
+        1
+        for m in terminees_cette_annee
+        if (echeance := _parse_date(m.get("echeance"))) and (date_fin := _parse_date(m.get("dateFinReelle"))) and date_fin <= echeance
+    )
+    pourcentage_dans_les_delais = round(dans_les_delais / total_terminees * 100) if total_terminees else None
 
-def _parse_date(value):
-    if not value:
-        return None
-    try:
-        return datetime.strptime(value, "%Y-%m-%d").date()
-    except ValueError:
-        return None
+    return {
+        "enCours": en_cours,
+        "deltaVsLastMonth": this_month - last_month,
+        "terminees": total_terminees,
+        "annee": now.year,
+        "pourcentageDansLesDelais": pourcentage_dans_les_delais,
+    }
 
 
 @app.get("/missions")
@@ -260,10 +326,10 @@ def list_missions(employee=Depends(get_current_employee)):
         if date_debut and echeance:
             duree_semaines = max(0, round((echeance - date_debut).days / 7))
 
-        if date_debut and today < date_debut:
-            statut = "Pas encore commencée"
-        elif echeance and today > echeance:
+        if m.get("statut") == "Terminée":
             statut = "Terminée"
+        elif date_debut and today < date_debut:
+            statut = "Pas encore commencée"
         else:
             statut = "En cours"
 
@@ -287,11 +353,55 @@ def list_missions(employee=Depends(get_current_employee)):
                 "managerGrade": manager_grade,
                 "statut": statut,
                 "progression": progression,
+                "phase": m.get("phase", ""),
+                "phaseStep": _mission_step(m),
             }
         )
 
     missions.sort(key=lambda x: x["client"].lower())
     return missions
+
+
+MISSION_STEP_LABELS = [
+    "Ouverture et collecte",
+    "Contrôle",
+    "Organisation",
+    "Revue par cycle",
+    "Revue multi-niveaux",
+    "Restitution client",
+    "Archivage",
+]
+
+
+def _mission_step(doc):
+    match = re.match(r"\s*(\d+)\s*/\s*7", doc.get("phase", ""))
+    if match:
+        step = int(match.group(1))
+        if 1 <= step <= 7:
+            return step
+    return 1
+
+
+def _next_phase_if_collecte_complete(current_phase, documents):
+    """Advance from phase 1 (Ouverture et collecte) to phase 2 (Contrôle) once every
+    requested document has been received. Returns the new phase string, or None if
+    the mission isn't currently on phase 1 or the checklist isn't 100% complete."""
+    if _mission_step({"phase": current_phase}) != 1:
+        return None
+    categories = documents.get("categories", [])
+    total = sum(len(c.get("documents", [])) for c in categories)
+    recus = sum(1 for c in categories for d in c.get("documents", []) if d.get("statut") == "Reçu")
+    if total > 0 and recus == total:
+        return f"2/7 · {MISSION_STEP_LABELS[1]}"
+    return None
+
+
+@app.get("/missions/phases")
+def mission_phases(employee=Depends(get_current_employee)):
+    counts = [0] * 7
+    for m in db.missions.find():
+        counts[_mission_step(m) - 1] += 1
+    return [{"value": counts[i], "label": MISSION_STEP_LABELS[i]} for i in range(7)]
 
 
 @app.get("/clients")
@@ -335,6 +445,161 @@ def create_mission(payload: MissionCreateRequest, employee=Depends(get_current_e
         "prenoms": employee["prenoms"],
     }
     doc["createdAt"] = datetime.now(timezone.utc)
+    doc["documents"] = _default_documents()
     result = db.missions.insert_one(doc)
     created = db.missions.find_one({"_id": result.inserted_id})
     return serialize_mission(created)
+
+
+@app.patch("/missions/{mission_id}/cloturer")
+def close_mission(mission_id: str, payload: MissionCloseRequest, employee=Depends(get_current_employee)):
+    try:
+        mission_object_id = ObjectId(mission_id)
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Mission invalide")
+    if db.missions.find_one({"_id": mission_object_id}) is None:
+        raise HTTPException(status_code=404, detail="Mission introuvable")
+
+    date_fin = payload.dateFin or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if _parse_date(date_fin) is None:
+        raise HTTPException(status_code=400, detail="Date de fin invalide")
+
+    db.missions.update_one(
+        {"_id": mission_object_id},
+        {"$set": {"statut": "Terminée", "dateFinReelle": date_fin}},
+    )
+    updated = db.missions.find_one({"_id": mission_object_id})
+    return serialize_mission(updated)
+
+
+def _get_mission_or_404(mission_id):
+    try:
+        object_id = ObjectId(mission_id)
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Mission invalide")
+    mission = db.missions.find_one({"_id": object_id})
+    if mission is None:
+        raise HTTPException(status_code=404, detail="Mission introuvable")
+    return object_id, mission
+
+
+@app.get("/uploads/{mission_id}/{stored_name}")
+def serve_upload(mission_id: str, stored_name: str):
+    file_path = os.path.abspath(os.path.join(UPLOADS_DIR, mission_id, stored_name))
+    if not file_path.startswith(UPLOADS_DIR + os.sep) or not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="Fichier introuvable")
+
+    original_name = stored_name.split("_", 1)[1] if "_" in stored_name else stored_name
+    mime_type, _ = mimetypes.guess_type(original_name)
+    is_inline = mime_type in INLINE_MIME_TYPES or (mime_type or "").startswith("image/")
+
+    return FileResponse(
+        file_path,
+        media_type=mime_type or "application/octet-stream",
+        filename=original_name,
+        content_disposition_type="inline" if is_inline else "attachment",
+    )
+
+
+@app.get("/missions/{mission_id}/documents")
+def get_mission_documents(mission_id: str, employee=Depends(get_current_employee)):
+    object_id, mission = _get_mission_or_404(mission_id)
+
+    if "documents" not in mission:
+        db.missions.update_one({"_id": object_id}, {"$set": {"documents": _default_documents()}})
+        mission = db.missions.find_one({"_id": object_id})
+
+    return serialize_documents(mission)
+
+
+@app.post("/missions/{mission_id}/documents", status_code=201)
+def add_mission_document(
+    mission_id: str,
+    categorie: str = Form(...),
+    description: str = Form(...),
+    version: str = Form("Electronique"),
+    dateDemande: str = Form(""),
+    statut: str = Form("En attente de livraison"),
+    fichier: UploadFile | None = File(None),
+    employee=Depends(get_current_employee),
+):
+    object_id, mission = _get_mission_or_404(mission_id)
+
+    categorie = categorie.strip()
+    description = description.strip()
+    if not categorie or not description:
+        raise HTTPException(status_code=400, detail="Catégorie et description requises")
+
+    documents = mission.get("documents") or _default_documents()
+    category = next((c for c in documents["categories"] if c["title"] == categorie), None)
+    if category is None:
+        category = {"title": categorie, "documents": []}
+        documents["categories"].append(category)
+
+    file_name = None
+    file_url = None
+    if fichier is not None and fichier.filename:
+        mission_dir = os.path.join(UPLOADS_DIR, mission_id)
+        os.makedirs(mission_dir, exist_ok=True)
+        safe_name = os.path.basename(fichier.filename)
+        stored_name = f"{uuid.uuid4().hex}_{safe_name}"
+        with open(os.path.join(mission_dir, stored_name), "wb") as f:
+            f.write(fichier.file.read())
+        file_name = safe_name
+        file_url = f"/uploads/{mission_id}/{stored_name}"
+
+    document = {
+        "id": uuid.uuid4().hex,
+        "description": description,
+        "version": version.strip() or "Electronique",
+        "dateDemande": dateDemande.strip() or "—",
+        "dateReception": datetime.now(timezone.utc).strftime("%Y-%m-%d") if statut == "Reçu" else "—",
+        "statut": statut,
+        "fileName": file_name,
+        "fileUrl": file_url,
+    }
+    category["documents"].append(document)
+
+    update_fields = {"documents": documents}
+    next_phase = _next_phase_if_collecte_complete(mission.get("phase", ""), documents)
+    if next_phase:
+        update_fields["phase"] = next_phase
+
+    db.missions.update_one({"_id": object_id}, {"$set": update_fields})
+    updated = db.missions.find_one({"_id": object_id})
+    return serialize_documents(updated)
+
+
+@app.patch("/missions/{mission_id}/documents/{document_id}")
+def update_mission_document(
+    mission_id: str,
+    document_id: str,
+    payload: DocumentStatusUpdate,
+    employee=Depends(get_current_employee),
+):
+    object_id, mission = _get_mission_or_404(mission_id)
+
+    documents = mission.get("documents") or _default_documents()
+    target = None
+    for category in documents["categories"]:
+        for d in category["documents"]:
+            if d["id"] == document_id:
+                target = d
+                break
+        if target:
+            break
+    if target is None:
+        raise HTTPException(status_code=404, detail="Document introuvable")
+
+    target["statut"] = payload.statut
+    if payload.statut == "Reçu":
+        target["dateReception"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    update_fields = {"documents": documents}
+    next_phase = _next_phase_if_collecte_complete(mission.get("phase", ""), documents)
+    if next_phase:
+        update_fields["phase"] = next_phase
+
+    db.missions.update_one({"_id": object_id}, {"$set": update_fields})
+    updated = db.missions.find_one({"_id": object_id})
+    return serialize_documents(updated)

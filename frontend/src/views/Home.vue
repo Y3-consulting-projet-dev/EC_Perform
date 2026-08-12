@@ -11,7 +11,14 @@ function authHeaders() {
 }
 
 const clientStats = ref({ total: null, newLastThreeMonths: null })
-const missionStats = ref({ enCours: null, deltaVsLastMonth: null })
+const missionStats = ref({
+  enCours: null,
+  deltaVsLastMonth: null,
+  terminees: null,
+  annee: new Date().getFullYear(),
+  pourcentageDansLesDelais: null,
+})
+const missionPhases = ref([])
 
 async function fetchClientStats() {
   try {
@@ -33,9 +40,20 @@ async function fetchMissionStats() {
   }
 }
 
+async function fetchMissionPhases() {
+  try {
+    const response = await fetch(`${apiUrl}/missions/phases`, { headers: authHeaders() })
+    if (!response.ok) return
+    missionPhases.value = await response.json()
+  } catch {
+    // section falls back to an empty grid below
+  }
+}
+
 onMounted(() => {
   fetchClientStats()
   fetchMissionStats()
+  fetchMissionPhases()
 })
 
 function missionsDelta() {
@@ -59,20 +77,17 @@ const stats = computed(() => [
     label: 'Missions en cours',
     delta: missionsDelta(),
   },
-  { value: '8', label: 'Missions terminés (2026)', delta: '▲ +91% dans les délais' },
+  {
+    value: missionStats.value.terminees === null ? '—' : String(missionStats.value.terminees),
+    label: `Missions terminées (${missionStats.value.annee})`,
+    delta:
+      missionStats.value.pourcentageDansLesDelais === null
+        ? ''
+        : `▲ ${missionStats.value.pourcentageDansLesDelais}% dans les délais`,
+  },
 ])
 
-const missionPhases = [
-  { value: 4, label: 'Ouverture et collecte' },
-  { value: 3, label: 'Contrôle' },
-  { value: 2, label: 'Organisation' },
-  { value: 5, label: 'Revue par cycle' },
-  { value: 2, label: 'Revue multi-niveaux' },
-  { value: 1, label: 'Restitution client' },
-  { value: 1, label: 'Archivage' },
-]
-
-const totalMissions = missionPhases.reduce((sum, p) => sum + p.value, 0)
+const totalMissions = computed(() => missionPhases.value.reduce((sum, p) => sum + p.value, 0))
 
 const riskStyles = {
   Élevé: { dot: 'bg-red-500', text: 'text-red-600' },

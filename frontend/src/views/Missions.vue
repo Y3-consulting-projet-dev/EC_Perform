@@ -102,7 +102,7 @@ const selectedMission = ref(null)
 
 function openMissionProcess(mission) {
   selectedClient.value = { raisonSociale: mission.client }
-  selectedMission.value = { exercice: mission.exercice }
+  selectedMission.value = mission
   showWorkspace.value = true
 }
 </script>
