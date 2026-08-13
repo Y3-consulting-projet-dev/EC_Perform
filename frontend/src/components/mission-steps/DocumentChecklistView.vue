@@ -1,13 +1,60 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 const props = defineProps({
-  checklist: { type: Object, required: true },
+  mission: { type: Object, required: true },
 })
 
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+function authHeaders() {
+  return { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+}
+
+const checklist = reactive({ recus: 0, total: 0, categories: [] })
+const loading = ref(true)
+const loadError = ref('')
+const phaseAdvancedLabel = ref('')
+
+function applyChecklistResponse(data) {
+  const phaseChanged = data.phase && props.mission.phase !== data.phase
+  Object.assign(checklist, data)
+  if (phaseChanged) {
+    props.mission.phase = data.phase
+    phaseAdvancedLabel.value = data.phase.split('·').pop().trim()
+  }
+}
+
+async function fetchChecklist() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    const response = await fetch(`${apiUrl}/missions/${props.mission.id}/documents`, { headers: authHeaders() })
+    const data = await response.json()
+    if (!response.ok) {
+      loadError.value = data.detail ?? 'Une erreur est survenue.'
+      return
+    }
+    Object.assign(checklist, data)
+  } catch {
+    loadError.value = 'Impossible de contacter le serveur.'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(fetchChecklist)
+
 const progressPercent = computed(() =>
-  props.checklist.total ? Math.round((props.checklist.recus / props.checklist.total) * 100) : 0,
+  checklist.total ? Math.round((checklist.recus / checklist.total) * 100) : 0,
 )
+
+function formatDate(value) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString('fr-FR')
+}
 
 const statutStyles = {
   'En attente de livraison': 'bg-gray-100 text-gray-600',
@@ -18,10 +65,30 @@ const statutStyles = {
 const statutOptions = ['En attente de livraison', 'Partiellement reçu', 'Reçu']
 const NEW_CATEGORY = '__new__'
 
-function updateDocStatut(doc, newStatut) {
-  if (doc.statut === 'Reçu' && newStatut !== 'Reçu') props.checklist.recus -= 1
-  if (doc.statut !== 'Reçu' && newStatut === 'Reçu') props.checklist.recus += 1
-  doc.statut = newStatut
+const updatingId = ref(null)
+const updateError = ref('')
+
+async function updateDocStatut(doc, newStatut) {
+  if (doc.statut === newStatut) return
+  updatingId.value = doc.id
+  updateError.value = ''
+  try {
+    const response = await fetch(`${apiUrl}/missions/${props.mission.id}/documents/${doc.id}`, {
+      method: 'PATCH',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statut: newStatut }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      updateError.value = data.detail ?? 'Une erreur est survenue.'
+      return
+    }
+    applyChecklistResponse(data)
+  } catch {
+    updateError.value = 'Impossible de contacter le serveur.'
+  } finally {
+    updatingId.value = null
+  }
 }
 
 const showInsertDocument = ref(false)
@@ -34,19 +101,22 @@ const insertForm = reactive({
   statut: 'En attente de livraison',
 })
 const selectedFile = ref(null)
+const saving = ref(false)
+const insertError = ref('')
 
 function handleFileChange(event) {
   selectedFile.value = event.target.files[0] ?? null
 }
 
 function openInsertDocument() {
-  insertForm.categorie = props.checklist.categories[0]?.title ?? NEW_CATEGORY
+  insertForm.categorie = checklist.categories[0]?.title ?? NEW_CATEGORY
   insertForm.nouvelleCategorie = ''
   insertForm.description = ''
   insertForm.version = 'Electronique'
   insertForm.dateDemande = ''
   insertForm.statut = 'En attente de livraison'
   selectedFile.value = null
+  insertError.value = ''
   showInsertDocument.value = true
 }
 
@@ -54,33 +124,39 @@ function closeInsertDocument() {
   showInsertDocument.value = false
 }
 
-function handleInsertDocument() {
+async function handleInsertDocument() {
   const categoryTitle =
     insertForm.categorie === NEW_CATEGORY ? insertForm.nouvelleCategorie.trim().toUpperCase() : insertForm.categorie
   if (!categoryTitle || !insertForm.description.trim()) return
 
-  let category = props.checklist.categories.find((c) => c.title === categoryTitle)
-  if (!category) {
-    category = { title: categoryTitle, documents: [] }
-    props.checklist.categories.push(category)
+  saving.value = true
+  insertError.value = ''
+  try {
+    const formData = new FormData()
+    formData.append('categorie', categoryTitle)
+    formData.append('description', insertForm.description.trim())
+    formData.append('version', insertForm.version.trim() || 'Electronique')
+    formData.append('dateDemande', insertForm.dateDemande.trim())
+    formData.append('statut', insertForm.statut)
+    if (selectedFile.value) formData.append('fichier', selectedFile.value)
+
+    const response = await fetch(`${apiUrl}/missions/${props.mission.id}/documents`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: formData,
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      insertError.value = data.detail ?? 'Une erreur est survenue.'
+      return
+    }
+    applyChecklistResponse(data)
+    closeInsertDocument()
+  } catch {
+    insertError.value = 'Impossible de contacter le serveur.'
+  } finally {
+    saving.value = false
   }
-
-  const totalDocs = props.checklist.categories.reduce((sum, c) => sum + c.documents.length, 0)
-  category.documents.push({
-    n: totalDocs + 1,
-    description: insertForm.description.trim(),
-    version: insertForm.version.trim() || 'Electronique',
-    dateDemande: insertForm.dateDemande.trim() || '—',
-    dateReception: '—',
-    statut: insertForm.statut,
-    fileName: selectedFile.value?.name ?? null,
-    fileUrl: selectedFile.value ? URL.createObjectURL(selectedFile.value) : null,
-  })
-
-  props.checklist.total += 1
-  if (insertForm.statut === 'Reçu') props.checklist.recus += 1
-
-  closeInsertDocument()
 }
 </script>
 
@@ -120,11 +196,17 @@ function handleInsertDocument() {
       Insérer des documents
     </button>
 
-    <div class="mt-6 overflow-x-auto rounded-lg shadow-sm">
+    <p v-if="phaseAdvancedLabel" class="mt-4 rounded-lg bg-[#e2f0e7] px-4 py-3 text-sm font-semibold text-[#0d3b56]">
+      Tous les documents ont été reçus : la mission est passée à la phase 2 – {{ phaseAdvancedLabel }}.
+    </p>
+    <p v-if="loadError" class="mt-4 text-sm text-red-600">{{ loadError }}</p>
+    <p v-if="updateError" class="mt-4 text-sm text-red-600">{{ updateError }}</p>
+    <p v-if="loading" class="mt-6 text-sm text-gray-400">Chargement des documents...</p>
+
+    <div v-else class="mt-6 overflow-x-auto rounded-lg shadow-sm">
       <table class="w-full text-left text-sm">
         <thead>
           <tr class="bg-[#7cb342] text-xs font-semibold text-white">
-            <th class="px-4 py-3">N°</th>
             <th class="px-4 py-3">Description des documents</th>
             <th class="px-4 py-3">Version</th>
             <th class="px-4 py-3">Date de demande</th>
@@ -135,17 +217,19 @@ function handleInsertDocument() {
         <tbody class="bg-white">
           <template v-for="category in checklist.categories" :key="category.title">
             <tr class="bg-[#0d3b56]">
-              <td colspan="6" class="px-4 py-2 text-xs font-bold text-white">{{ category.title }}</td>
+              <td colspan="5" class="px-4 py-2 text-xs font-bold text-white">{{ category.title }}</td>
             </tr>
-            <tr v-for="doc in category.documents" :key="doc.n" class="border-t border-gray-100">
-              <td class="px-4 py-3 text-gray-500">{{ doc.n }}</td>
+            <tr v-if="category.documents.length === 0" class="border-t border-gray-100">
+              <td colspan="5" class="px-4 py-3 text-center text-xs text-gray-400">Aucun document</td>
+            </tr>
+            <tr v-for="doc in category.documents" :key="doc.id" class="border-t border-gray-100">
               <td class="px-4 py-3 font-medium text-[#0d3b56]">
                 <a
                   v-if="doc.fileUrl"
-                  :href="doc.fileUrl"
-                  :download="doc.fileName"
+                  :href="`${apiUrl}${doc.fileUrl}`"
                   class="flex items-center gap-1.5 text-[#2f6fb0] hover:underline"
                   target="_blank"
+                  rel="noopener"
                 >
                   <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21.44 11.05 12.25 20.24a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.48" />
@@ -155,12 +239,13 @@ function handleInsertDocument() {
                 <span v-else>{{ doc.description }}</span>
               </td>
               <td class="px-4 py-3 text-gray-500">{{ doc.version }}</td>
-              <td class="px-4 py-3 text-gray-500">{{ doc.dateDemande }}</td>
-              <td class="px-4 py-3 text-gray-500">{{ doc.dateReception }}</td>
+              <td class="px-4 py-3 text-gray-500">{{ formatDate(doc.dateDemande) }}</td>
+              <td class="px-4 py-3 text-gray-500">{{ formatDate(doc.dateReception) }}</td>
               <td class="px-4 py-3">
                 <select
                   :value="doc.statut"
-                  class="appearance-none rounded-full px-3 py-1 text-xs font-semibold outline-none"
+                  :disabled="updatingId === doc.id"
+                  class="appearance-none rounded-full px-3 py-1 text-xs font-semibold outline-none disabled:opacity-60"
                   :class="statutStyles[doc.statut] ?? 'bg-gray-100 text-gray-600'"
                   @change="updateDocStatut(doc, $event.target.value)"
                 >
@@ -217,7 +302,7 @@ function handleInsertDocument() {
 
           <div>
             <label for="doc-description" class="mb-1 block text-sm font-bold text-[#0d3b56]"
-              >Description du document</label
+              >Nom du document</label
             >
             <input
               id="doc-description"
@@ -255,9 +340,8 @@ function handleInsertDocument() {
               <input
                 id="doc-date-demande"
                 v-model="insertForm.dateDemande"
-                type="text"
-                placeholder="JJ/MM/AAAA"
-                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#0d3b56] placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#7cb342]"
+                type="date"
+                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
               />
             </div>
           </div>
@@ -273,6 +357,8 @@ function handleInsertDocument() {
             </select>
           </div>
 
+          <p v-if="insertError" class="text-sm text-red-600">{{ insertError }}</p>
+
           <div class="flex justify-end gap-3 pt-2">
             <button
               type="button"
@@ -283,9 +369,10 @@ function handleInsertDocument() {
             </button>
             <button
               type="submit"
-              class="rounded-full bg-[#7cb342] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6ca038]"
+              :disabled="saving"
+              class="rounded-full bg-[#7cb342] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6ca038] disabled:opacity-60"
             >
-              Insérer
+              {{ saving ? 'Insertion...' : 'Insérer' }}
             </button>
           </div>
         </form>
