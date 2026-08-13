@@ -34,14 +34,26 @@ function fullName(e) {
   return `${e.prenoms} ${e.nom}`.trim()
 }
 
+// Grades RH (grille interne) correspondant aux postes Manager / Senior manager / Senior.
+const MANAGER_GRADES = ['10b', '10c']
+const SENIOR_GRADES = ['9a']
+
+const EXPERTISE_COMPTABLE_DEPARTEMENTS = ['expertise comptable', 'audit & expertise comptable']
+
+function isExpertiseComptable(e) {
+  return EXPERTISE_COMPTABLE_DEPARTEMENTS.includes((e.departement ?? '').trim().toLowerCase())
+}
+
 const managers = computed(() =>
   employees.value
-    .filter((e) => ['manager', 'senior manager'].includes((e.grade ?? '').trim().toLowerCase()))
+    .filter((e) => isExpertiseComptable(e) && MANAGER_GRADES.includes((e.grade ?? '').trim().toLowerCase()))
     .map(fullName),
 )
 
 const seniors = computed(() =>
-  employees.value.filter((e) => (e.grade ?? '').trim().toLowerCase() === 'senior').map(fullName),
+  employees.value
+    .filter((e) => isExpertiseComptable(e) && SENIOR_GRADES.includes((e.grade ?? '').trim().toLowerCase()))
+    .map(fullName),
 )
 
 function emptyForm() {

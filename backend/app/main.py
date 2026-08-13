@@ -13,6 +13,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from app.auth import create_access_token, decode_access_token, hash_password, verify_password
+from app.balance import compute_coherence, compute_intangibilite, parse_balance_file
 from app.db import db
 
 app = FastAPI(title="Ec-perform API")
@@ -603,3 +604,116 @@ def update_mission_document(
     db.missions.update_one({"_id": object_id}, {"$set": update_fields})
     updated = db.missions.find_one({"_id": object_id})
     return serialize_documents(updated)
+
+
+def _detect_annee(*texts):
+    for text in texts:
+        match = re.search(r"(19|20)\d{2}", text or "")
+        if match:
+            return int(match.group(0))
+    return None
+
+
+def _balance_candidates(mission):
+    documents = mission.get("documents") or _default_documents()
+    candidates = []
+    for category in documents.get("categories", []):
+        for document in category.get("documents", []):
+            if not document.get("fileUrl"):
+                continue
+            description = document.get("description", "")
+            file_name = document.get("fileName", "")
+            if not (re.search(r"balance", description, re.I) or re.search(r"balance", file_name, re.I)):
+                continue
+            candidates.append(
+                {
+                    "documentId": document["id"],
+                    "description": description,
+                    "fileName": file_name,
+                    "fileUrl": document["fileUrl"],
+                    "annee": _detect_annee(description, file_name),
+                }
+            )
+    candidates.sort(key=lambda c: (c["annee"] is None, -(c["annee"] or 0)))
+    return candidates
+
+
+def _find_mission_document(mission, document_id):
+    documents = mission.get("documents") or _default_documents()
+    for category in documents.get("categories", []):
+        for document in category.get("documents", []):
+            if document.get("id") == document_id:
+                return document
+    return None
+
+
+def _document_file_path(mission_id, document):
+    stored_name = document["fileUrl"].rsplit("/", 1)[-1]
+    return os.path.join(UPLOADS_DIR, mission_id, stored_name)
+
+
+def _parse_balance_document(mission_id, mission, document_id, label):
+    document = _find_mission_document(mission, document_id)
+    if document is None or not document.get("fileUrl"):
+        raise HTTPException(status_code=404, detail=f"Balance {label} introuvable")
+    try:
+        return parse_balance_file(_document_file_path(mission_id, document)), document
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Impossible de lire le fichier de la balance {label}")
+
+
+@app.get("/missions/{mission_id}/balances")
+def get_mission_balances(mission_id: str, employee=Depends(get_current_employee)):
+    _, mission = _get_mission_or_404(mission_id)
+    return {"balances": _balance_candidates(mission)}
+
+
+@app.get("/missions/{mission_id}/controles/intangibilite")
+def get_controle_intangibilite(
+    mission_id: str,
+    documentIdN: str | None = None,
+    documentIdNMoins1: str | None = None,
+    employee=Depends(get_current_employee),
+):
+    _, mission = _get_mission_or_404(mission_id)
+    candidates = _balance_candidates(mission)
+
+    if not documentIdN or not documentIdNMoins1:
+        if len(candidates) < 2:
+            raise HTTPException(status_code=404, detail="Balances N et N-1 introuvables pour cette mission")
+        documentIdN = documentIdN or candidates[0]["documentId"]
+        documentIdNMoins1 = documentIdNMoins1 or candidates[1]["documentId"]
+
+    comptes_n, document_n = _parse_balance_document(mission_id, mission, documentIdN, "N")
+    comptes_n_moins1, document_n_moins1 = _parse_balance_document(mission_id, mission, documentIdNMoins1, "N-1")
+
+    resultat = compute_intangibilite(comptes_n, comptes_n_moins1)
+    annee_n = _detect_annee(document_n.get("description", ""), document_n.get("fileName", ""))
+    annee_n_moins1 = _detect_annee(document_n_moins1.get("description", ""), document_n_moins1.get("fileName", ""))
+    resultat["periodeN"] = str(annee_n) if annee_n else document_n.get("description", "")
+    resultat["periodeNMoins1"] = str(annee_n_moins1) if annee_n_moins1 else document_n_moins1.get("description", "")
+    resultat["documentIdN"] = documentIdN
+    resultat["documentIdNMoins1"] = documentIdNMoins1
+    return resultat
+
+
+@app.get("/missions/{mission_id}/controles/coherence")
+def get_controle_coherence(
+    mission_id: str,
+    documentId: str | None = None,
+    employee=Depends(get_current_employee),
+):
+    _, mission = _get_mission_or_404(mission_id)
+    candidates = _balance_candidates(mission)
+
+    if not documentId:
+        if not candidates:
+            raise HTTPException(status_code=404, detail="Aucune balance trouvée pour cette mission")
+        documentId = candidates[0]["documentId"]
+
+    comptes, document = _parse_balance_document(mission_id, mission, documentId, "sélectionnée")
+    resultat = compute_coherence(comptes)
+    annee = _detect_annee(document.get("description", ""), document.get("fileName", ""))
+    resultat["annee"] = str(annee) if annee else document.get("description", "")
+    resultat["documentId"] = documentId
+    return resultat
