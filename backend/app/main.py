@@ -13,7 +13,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from app.auth import create_access_token, decode_access_token, hash_password, verify_password
-from app.balance import compute_coherence, compute_intangibilite, parse_balance_file
+from app.balance import compute_coherence, compute_intangibilite, compute_vraisemblance, parse_balance_file
 from app.db import db
 
 app = FastAPI(title="Ec-perform API")
@@ -713,6 +713,7 @@ def get_controle_coherence(
 
     comptes, document = _parse_balance_document(mission_id, mission, documentId, "sélectionnée")
     resultat = compute_coherence(comptes)
+    resultat["vraisemblance"] = compute_vraisemblance(comptes)
     annee = _detect_annee(document.get("description", ""), document.get("fileName", ""))
     resultat["annee"] = str(annee) if annee else document.get("description", "")
     resultat["documentId"] = documentId

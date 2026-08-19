@@ -155,6 +155,178 @@ def compute_intangibilite(comptes_n, comptes_n_moins1):
     return {"totalComptes": len(lignes), "ecarts": ecarts, "comptes": lignes}
 
 
+# Sens normal du solde par classe de compte, selon le plan comptable SYSCOHADA.
+CLASSE_SENS_NORMAL = {
+    "1": "CRÉDITEUR",
+    "2": "DÉBITEUR",
+    "3": "DÉBITEUR",
+    "4": "Variable selon sous-classe",
+    "5": "DÉBITEUR",
+    "6": "DÉBITEUR",
+    "7": "CRÉDITEUR",
+}
+
+CLASSE_NATURE = {
+    "1": "Capital social, réserves, report à nouveau, subventions d'investissement, provisions "
+    "réglementées, emprunts et dettes assimilées.",
+    "2": "Immobilisations incorporelles, corporelles, financières, avances sur immobilisations, "
+    "amortissements et dépréciations.",
+    "3": "Stocks de marchandises, matières, en-cours de production, produits, dépréciations de stocks.",
+    "4": "Fournisseurs, clients, personnel, organismes sociaux, État, groupe et associés, comptes "
+    "débiteurs/créditeurs divers.",
+    "5": "Banques, caisse, valeurs mobilières de placement, virements internes.",
+    "6": "Achats, charges externes, impôts et taxes, charges de personnel, dotations, charges financières.",
+    "7": "Ventes, production stockée/immobilisée, subventions d'exploitation, produits financiers.",
+}
+
+# Comptes qui doivent obligatoirement être soldés : (préfixe, libellé, gravité, motif).
+COMPTES_A_SOLDER = [
+    ("471", "Comptes transitoires ou d'attente", "Critique",
+     "Tout solde indique des écritures en suspens non régularisées ; à analyser ligne par ligne."),
+    ("58", "Virements internes", "Critique",
+     "Tout solde indique une erreur de lettrage ou un virement non comptabilisé des deux côtés."),
+    ("422", "Personnel - Rémunérations dues", "Moyenne",
+     "Doit être soldé lors de la paie suivante ; un solde ancien peut indiquer une erreur de lettrage."),
+    ("4387", "Organismes sociaux - Charges à payer", "Moyenne",
+     "Doit être soldé lors de la déclaration sociale suivante."),
+    ("44551", "TVA à décaisser", "Critique",
+     "Doit être soldée lors du paiement de la TVA ; un solde ancien indique un risque fiscal."),
+]
+
+
+def _sens_attendu(numero):
+    if not numero or not numero[0].isdigit():
+        return "BOTH"
+    classe = numero[0]
+    if classe == "1":
+        if numero.startswith(("105", "12", "109", "129", "1309")):
+            return "BOTH"
+        return "C"
+    if classe == "2":
+        return "C" if numero.startswith(("28", "29")) else "D"
+    if classe == "3":
+        return "C" if numero.startswith("39") else "D"
+    if classe == "4":
+        if numero.startswith("40"):
+            return "BOTH" if numero.startswith("4091") else "C"
+        if numero.startswith("41"):
+            return "BOTH" if numero.startswith("4191") else "D"
+        if numero.startswith(("42", "43", "49")):
+            return "C"
+        return "BOTH"
+    if classe == "5":
+        if numero.startswith(("519", "58")):
+            return "BOTH"
+        return "C" if numero.startswith("59") else "D"
+    if classe == "6":
+        return "D"
+    if classe == "7":
+        return "C"
+    return "BOTH"
+
+
+def _compte_a_solder(numero):
+    for prefixe, libelle, gravite, motif in COMPTES_A_SOLDER:
+        if numero.startswith(prefixe):
+            return libelle, gravite, motif
+    if numero and numero[0] in ("6", "7"):
+        return (
+            "Compte de gestion (classe 6/7)",
+            "Moyenne",
+            "Doit être soldé en fin d'exercice par virement au compte de résultat (12) ; aucun solde ne "
+            "doit subsister à l'ouverture de l'exercice suivant.",
+        )
+    return None
+
+
+def compute_vraisemblance(comptes):
+    tableau_classes = {
+        classe: {
+            "classe": classe,
+            "sensNormal": CLASSE_SENS_NORMAL[classe],
+            "nature": CLASSE_NATURE[classe],
+            "anomalies": [],
+        }
+        for classe in CLASSE_SENS_NORMAL
+    }
+    comptes_non_soldes = []
+    anomalies_signe = 0
+
+    for c in comptes:
+        numero = c["numero"]
+        classe = numero[0] if numero and numero[0].isdigit() else None
+        solde = _solde(c["debitCloture"], c["creditCloture"])
+        message = None
+
+        if numero.startswith("53") and solde < -TOLERANCE:
+            message = (
+                f"Compte de caisse {numero} avec un solde créditeur de {format_montant(-solde)} FCFA : "
+                "impossible physiquement, une caisse ne peut être créditrice. Erreur certaine à corriger."
+            )
+        elif classe == "3" and not numero.startswith("39") and solde < -TOLERANCE:
+            message = (
+                f"Compte de stock {numero} avec un solde créditeur de {format_montant(-solde)} FCFA : "
+                "anomalie à investiguer (écritures d'inventaire, erreur de saisie ou de valorisation)."
+            )
+        else:
+            sens = _sens_attendu(numero)
+            if sens == "D" and solde < -TOLERANCE:
+                message = (
+                    f"Compte {numero} (classe {classe}) attendu débiteur mais présente un solde créditeur "
+                    f"de {format_montant(-solde)} FCFA."
+                )
+            elif sens == "C" and solde > TOLERANCE:
+                message = (
+                    f"Compte {numero} (classe {classe}) attendu créditeur mais présente un solde débiteur "
+                    f"de {format_montant(solde)} FCFA."
+                )
+
+        if message and classe in tableau_classes:
+            anomalies_signe += 1
+            tableau_classes[classe]["anomalies"].append(
+                {"compte": numero, "libelle": c["libelle"], "solde": format_montant(solde), "message": message}
+            )
+
+        a_solder = _compte_a_solder(numero) if numero else None
+        if a_solder and abs(solde) >= TOLERANCE:
+            libelle, gravite, motif = a_solder
+            comptes_non_soldes.append(
+                {
+                    "compte": numero,
+                    "libelle": c["libelle"],
+                    "solde": format_montant(solde),
+                    "gravite": gravite,
+                    "motif": f"{libelle} — {motif}",
+                }
+            )
+
+    total = len(comptes)
+    ok = anomalies_signe == 0 and not comptes_non_soldes
+
+    if ok:
+        explication = (
+            f"Le système a vérifié le sens (débit/crédit) des soldes de {total} compte(s) selon les règles "
+            "SYSCOHADA, ainsi que le solde des comptes devant être obligatoirement soldés. Aucune anomalie "
+            "détectée."
+        )
+    else:
+        explication = (
+            f"Le système a vérifié le sens (débit/crédit) des soldes de {total} compte(s) selon les règles "
+            f"SYSCOHADA. {anomalies_signe} compte(s) présentent un sens anormal et {len(comptes_non_soldes)} "
+            "compte(s) devant être soldés portent encore un solde."
+        )
+
+    return {
+        "statut": "OK" if ok else "Erreur",
+        "comptesVerifies": total,
+        "anomaliesSigne": anomalies_signe,
+        "comptesNonSoldes": len(comptes_non_soldes),
+        "explication": explication,
+        "tableauClasses": list(tableau_classes.values()),
+        "listeComptesNonSoldes": comptes_non_soldes,
+    }
+
+
 def compute_coherence(comptes):
     total_debits = sum(c["debitCloture"] for c in comptes)
     total_credits = sum(c["creditCloture"] for c in comptes)

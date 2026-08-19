@@ -34,9 +34,8 @@ function fullName(e) {
   return `${e.prenoms} ${e.nom}`.trim()
 }
 
-// Grades RH (grille interne) correspondant aux postes Manager / Senior manager / Senior.
-const MANAGER_GRADES = ['10b', '10c']
-const SENIOR_GRADES = ['9a']
+const MANAGER_GRADES = ['manager']
+const SENIOR_GRADES = ['senior']
 
 const EXPERTISE_COMPTABLE_DEPARTEMENTS = ['expertise comptable', 'audit & expertise comptable']
 

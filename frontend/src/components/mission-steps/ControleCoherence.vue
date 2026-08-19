@@ -263,6 +263,153 @@ onMounted(fetchBalances)
       </template>
     </template>
 
-    <p v-else class="mt-6 text-sm text-gray-500">Contenu à venir pour le contrôle de vraisemblance.</p>
+    <template v-else>
+      <p v-if="loadingBalances" class="mt-6 text-sm text-gray-400">Chargement des balances...</p>
+
+      <p
+        v-else-if="balances.length === 0"
+        class="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700"
+      >
+        Aucune balance disponible pour cette mission. Déposez-la depuis la Phase 1 – Ouverture et collecte, dans
+        n'importe quelle catégorie : tout document dont le nom ou la description contient « balance » est
+        automatiquement détecté, dès son dépôt, même si les autres documents de la checklist ne sont pas encore
+        reçus.
+      </p>
+
+      <template v-else>
+        <div class="mt-6 flex items-center gap-3">
+          <label for="balance-vraisemblance" class="text-sm font-bold text-[#0d3b56]">Sélectionner la balance :</label>
+          <select
+            id="balance-vraisemblance"
+            v-model="selectedDocumentId"
+            class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
+            @change="fetchControle"
+          >
+            <option v-for="balance in balances" :key="balance.documentId" :value="balance.documentId">
+              {{ balanceLabel(balance) }}
+            </option>
+          </select>
+        </div>
+
+        <p v-if="error" class="mt-3 text-sm text-red-600">{{ error }}</p>
+        <p v-if="loadingControle" class="mt-4 text-sm text-gray-400">Calcul du contrôle...</p>
+
+        <template v-if="controleActif?.vraisemblance">
+          <div class="mt-6 flex items-center gap-4 rounded-xl bg-white p-5 shadow-sm">
+            <span
+              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#0d3b56] text-sm font-bold text-white"
+            >
+              {{ controleActif.annee }}
+            </span>
+            <div>
+              <p class="font-bold text-[#0d3b56]">Contrôle de Vraisemblance - Exercice {{ controleActif.annee }}</p>
+              <p class="mt-1 flex items-center gap-4 text-xs text-gray-500">
+                <span class="flex items-center gap-1.5">
+                  <span
+                    class="h-2 w-2 rounded-full"
+                    :class="controleActif.vraisemblance.statut === 'OK' ? 'bg-[#7cb342]' : 'bg-red-500'"
+                  ></span>
+                  Statut : {{ controleActif.vraisemblance.statut === 'OK' ? 'OK' : 'Erreur' }}
+                </span>
+                <span class="flex items-center gap-1.5">
+                  <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                  {{ controleActif.vraisemblance.anomaliesSigne }} anomalie(s) de sens,
+                  {{ controleActif.vraisemblance.comptesNonSoldes }} compte(s) non soldé(s)
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-3 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
+            {{ controleActif.vraisemblance.explication }}
+          </div>
+
+          <div class="mt-6 space-y-4">
+            <div
+              v-for="classe in controleActif.vraisemblance.tableauClasses"
+              :key="classe.classe"
+              class="rounded-xl border border-gray-200 bg-white p-5"
+            >
+              <p class="flex items-center justify-between text-sm font-bold text-[#0d3b56]">
+                <span>Classe {{ classe.classe }} — Sens normal attendu : {{ classe.sensNormal }}</span>
+                <span
+                  class="rounded-full px-3 py-1 text-xs font-semibold"
+                  :class="classe.anomalies.length ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'"
+                >
+                  {{ classe.anomalies.length ? `${classe.anomalies.length} anomalie(s)` : 'OK' }}
+                </span>
+              </p>
+              <p class="mt-2 text-xs text-gray-500">{{ classe.nature }}</p>
+
+              <div v-if="classe.anomalies.length" class="mt-4 overflow-x-auto rounded-lg shadow-sm">
+                <table class="w-full text-left text-sm">
+                  <thead>
+                    <tr class="bg-red-600 text-xs font-semibold uppercase text-white">
+                      <th class="px-4 py-3">Compte</th>
+                      <th class="px-4 py-3">Libellé</th>
+                      <th class="px-4 py-3">Solde</th>
+                      <th class="px-4 py-3">Anomalie</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white">
+                    <tr v-for="a in classe.anomalies" :key="a.compte" class="border-t border-gray-100">
+                      <td class="px-4 py-3 font-medium text-[#0d3b56]">{{ a.compte }}</td>
+                      <td class="px-4 py-3 text-gray-500">{{ a.libelle }}</td>
+                      <td class="px-4 py-3 font-bold text-red-600">{{ a.solde }}</td>
+                      <td class="max-w-md px-4 py-3 text-xs text-gray-500">{{ a.message }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="rounded-xl border-l-4 border-amber-500 bg-amber-50 p-5">
+              <p class="text-sm font-bold text-amber-700">Comptes devant être soldés</p>
+              <p class="mt-1 text-xs text-amber-800">
+                Certains comptes (transitoires, virements internes, comptes de gestion...) ne doivent porter aucun
+                solde à la clôture de l'exercice.
+              </p>
+
+              <div v-if="controleActif.vraisemblance.listeComptesNonSoldes.length" class="mt-4 overflow-x-auto rounded-lg shadow-sm">
+                <table class="w-full text-left text-sm">
+                  <thead>
+                    <tr class="bg-amber-600 text-xs font-semibold uppercase text-white">
+                      <th class="px-4 py-3">Compte</th>
+                      <th class="px-4 py-3">Libellé</th>
+                      <th class="px-4 py-3">Solde</th>
+                      <th class="px-4 py-3">Gravité</th>
+                      <th class="px-4 py-3">Motif</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white">
+                    <tr
+                      v-for="c in controleActif.vraisemblance.listeComptesNonSoldes"
+                      :key="c.compte"
+                      class="border-t border-gray-100"
+                    >
+                      <td class="px-4 py-3 font-medium text-[#0d3b56]">{{ c.compte }}</td>
+                      <td class="px-4 py-3 text-gray-500">{{ c.libelle }}</td>
+                      <td class="px-4 py-3 font-bold text-red-600">{{ c.solde }}</td>
+                      <td class="px-4 py-3">
+                        <span
+                          class="rounded-full px-3 py-1 text-xs font-semibold"
+                          :class="c.gravite === 'Critique' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'"
+                        >
+                          {{ c.gravite }}
+                        </span>
+                      </td>
+                      <td class="max-w-md px-4 py-3 text-xs text-gray-500">{{ c.motif }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p v-else class="mt-3 text-xs font-semibold text-emerald-700">
+                Aucun compte à solder ne porte de solde résiduel.
+              </p>
+            </div>
+          </div>
+        </template>
+      </template>
+    </template>
   </div>
 </template>
