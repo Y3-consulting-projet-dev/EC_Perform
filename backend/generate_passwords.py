@@ -1,5 +1,5 @@
-from app.auth import hash_password
-from app.db import db
+from app.core.security import hash_password
+from app.db.session import db
 
 DEFAULT_PASSWORD = "Ycube@c2026"
 
