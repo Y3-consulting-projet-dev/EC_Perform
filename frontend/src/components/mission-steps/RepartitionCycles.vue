@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 const props = defineProps({
   mission: { type: Object, required: true },
@@ -91,11 +91,107 @@ async function saveCycle(cycle) {
 }
 
 onMounted(fetchData)
+
+const showTeamPanel = ref(false)
+const equipeSelectionnee = ref([])
+const equipe = ref([])
+
+const equipeMembres = computed(() => employees.value.filter((e) => equipe.value.includes(e.id)))
+const assignationOptions = computed(() => (equipe.value.length ? equipeMembres.value : employees.value))
+
+function openTeamPanel() {
+  equipeSelectionnee.value = [...equipe.value]
+  showTeamPanel.value = !showTeamPanel.value
+}
+
+async function creerEquipe() {
+  equipe.value = [...equipeSelectionnee.value]
+  showTeamPanel.value = false
+  if (!equipe.value.length) return
+  for (const cycle of cycles.value) {
+    if (!equipe.value.includes(cycle.assigneA)) {
+      cycle.assigneA = equipe.value[0]
+      await saveCycle(cycle)
+    }
+  }
+}
 </script>
 
 <template>
   <div>
-    <h1 class="mt-4 text-lg font-extrabold text-[#0d3b56]">Répartition des cycles</h1>
+    <div class="mt-4 flex items-center justify-between">
+      <h1 class="text-lg font-extrabold text-[#0d3b56]">Répartition des cycles</h1>
+
+      <div class="flex items-center gap-4">
+        <div v-if="equipeMembres.length" class="flex items-center -space-x-2">
+          <span
+            v-for="membre in equipeMembres"
+            :key="membre.id"
+            :title="`${membre.prenoms} ${membre.nom}`"
+            class="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-[#2f6fb0] text-xs font-bold text-white"
+          >
+            {{ initials(membre) }}
+          </span>
+        </div>
+
+        <div class="relative">
+          <button
+            type="button"
+            class="flex items-center gap-2 rounded-lg bg-[#0d3b56] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
+            @click="openTeamPanel"
+          >
+            Créer mon équipe
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+
+          <div v-if="showTeamPanel" class="fixed inset-0 z-10" @click="showTeamPanel = false"></div>
+
+          <div
+            v-if="showTeamPanel"
+            class="absolute right-0 z-20 mt-2 w-96 rounded-xl border border-gray-200 bg-white p-4 shadow-lg"
+            @click.stop
+          >
+            <p class="text-xs text-gray-500">Sélectionnez les collaborateurs à affecter à cette mission.</p>
+
+            <div class="mt-3 max-h-64 space-y-1 overflow-y-auto">
+              <label
+                v-for="employee in employees"
+                :key="employee.id"
+                class="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50"
+              >
+                <input
+                  type="checkbox"
+                  :value="employee.id"
+                  v-model="equipeSelectionnee"
+                  class="h-4 w-4 rounded border-gray-300 text-[#7cb342] focus:ring-[#7cb342]"
+                />
+                <span
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0d3b56] text-xs font-bold text-white"
+                >
+                  {{ initials(employee) }}
+                </span>
+                <span class="flex-1">
+                  <span class="block text-sm font-bold text-[#0d3b56]">{{ employee.prenoms }} {{ employee.nom }}</span>
+                  <span v-if="employee.grade" class="block text-xs text-gray-400">{{ employee.grade }}</span>
+                </span>
+              </label>
+            </div>
+
+            <div class="mt-4 flex justify-end">
+              <button
+                type="button"
+                class="rounded-lg bg-[#0d3b56] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
+                @click="creerEquipe"
+              >
+                Créer l'équipe
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <p v-if="loading" class="mt-6 text-sm text-gray-400">Chargement...</p>
     <p v-else-if="error" class="mt-4 text-sm text-red-600">{{ error }}</p>
@@ -151,7 +247,7 @@ onMounted(fetchData)
                   @change="saveCycle(cycle)"
                 >
                   <option :value="null">—</option>
-                  <option v-for="option in employees" :key="option.id" :value="option.id">
+                  <option v-for="option in assignationOptions" :key="option.id" :value="option.id">
                     {{ employeeLabel(option) }}
                   </option>
                 </select>

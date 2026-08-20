@@ -250,9 +250,7 @@ async function handleSubmit() {
             <h3 class="mb-3 text-sm font-bold text-[#0d3b56]">Balances (facultatif)</h3>
             <div class="grid grid-cols-2 gap-x-10 gap-y-6">
               <div>
-                <label for="mission-balance-n" class="mb-1 block text-sm font-bold text-[#0d3b56]"
-                  >Balance N ({{ currentYear }})</label
-                >
+                <label for="mission-balance-n" class="mb-1 block text-sm font-bold text-[#0d3b56]">Balance N</label>
                 <input
                   id="mission-balance-n"
                   type="file"
@@ -264,7 +262,7 @@ async function handleSubmit() {
               </div>
               <div>
                 <label for="mission-balance-n-1" class="mb-1 block text-sm font-bold text-[#0d3b56]"
-                  >Balance N-1 ({{ currentYear - 1 }})</label
+                  >Balance N-1</label
                 >
                 <input
                   id="mission-balance-n-1"
