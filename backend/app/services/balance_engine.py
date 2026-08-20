@@ -236,6 +236,8 @@ def compute_intangibilite(comptes_n, comptes_n_moins1):
 
     lignes = []
     for numero in tous_numeros:
+        if numero[0] not in "12345":
+            continue
         compte_n = par_numero_n.get(numero)
         compte_n_moins1 = par_numero_n_moins1.get(numero)
 
