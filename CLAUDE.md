@@ -46,24 +46,34 @@ One-off data scripts (run from `backend/` with the venv active):
 
 ## Environment configuration
 
-- `backend/.env` (gitignored): `MONGO_URI`, `MONGO_DB_NAME`, `JWT_SECRET_KEY`. `app/auth.py` reads
-  `JWT_SECRET_KEY` with `os.environ[...]` (not `.get`), so the process will hard-fail at import time
-  if it's unset.
+- `backend/.env` (gitignored): `MONGO_URI`, `MONGO_DB_NAME`, `JWT_SECRET_KEY`. `app/core/security.py`
+  reads `JWT_SECRET_KEY` with `os.environ[...]` (not `.get`), so the process will hard-fail at import
+  time if it's unset.
 - `frontend/.env`: `VITE_API_URL` (defaults to `http://localhost:8000` in code if unset).
 
 ## Architecture
 
 ### Backend (`backend/app/`)
 
-Small, flat FastAPI app — everything currently lives in three files, no routers/blueprints split yet:
+Layered FastAPI app — routers (controllers) → services (business logic) → Mongo, plus Pydantic
+request models:
 
-- `db.py` — module-level `pymongo.MongoClient` instance (`db`), imported directly wherever data
-  access is needed. No repository/DAO layer; route handlers call `db.<collection>.find_one(...)` etc.
-  directly.
-- `auth.py` — bcrypt password hashing and JWT creation/decoding (HS256, 8h expiry, `sub` claim = email).
-- `main.py` — all routes and the `get_current_user` dependency, which decodes the bearer token,
-  re-fetches the user document from Mongo on every request (no in-memory session), and 401s if
-  either the token or the user lookup fails.
+- `db/session.py` — module-level `pymongo.MongoClient` instance (`db`). No repository/DAO layer;
+  services call `db.<collection>.find_one(...)` etc. directly.
+- `core/security.py` — bcrypt password hashing and JWT creation/decoding (HS256, 8h expiry, `sub`
+  claim = email).
+- `core/deps.py` — the `get_current_employee` dependency, which decodes the bearer token, re-fetches
+  the employee document from Mongo on every request (no in-memory session), and 401s if either the
+  token or the lookup fails.
+- `models/` — Pydantic request schemas, one module per domain (`auth.py`, `employee.py`, `client.py`,
+  `mission.py`, `document.py`).
+- `services/` — business logic and Mongo access, one module per domain (`employee_service.py`,
+  `client_service.py`, `mission_service.py`, `document_service.py`, `balance_service.py`), plus
+  `balance_engine.py` (pure functions, no FastAPI/Mongo dependency: parses balance `.xlsx` files and
+  computes the intangibilité/cohérence/vraisemblance SYSCOHADA checks).
+- `routers/` — one `APIRouter` per domain (`auth.py`, `employees.py`, `clients.py`, `missions.py`,
+  `documents.py` — which also serves `/uploads/{mission_id}/{stored_name}`, `balances.py`), all
+  included in `main.py`, which only builds the `FastAPI` app, wires CORS, and exposes `/health`.
 
 Auth model: login issues a JWT keyed on email; the frontend stores the raw token and the employee
 object in `localStorage` and sends `Authorization: Bearer <token>` on subsequent requests. There is
