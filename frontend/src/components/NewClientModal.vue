@@ -1,5 +1,6 @@
 <script setup>
 import { reactive, ref } from 'vue'
+import NewMissionModal from './NewMissionModal.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -37,13 +38,14 @@ function emptyForm() {
 const form = reactive(emptyForm())
 const saving = ref(false)
 const error = ref('')
+const formRef = ref(null)
 
 function close() {
   error.value = ''
   emit('update:modelValue', false)
 }
 
-async function handleSubmit() {
+async function createClient() {
   error.value = ''
   saving.value = true
   try {
@@ -55,15 +57,34 @@ async function handleSubmit() {
     const data = await response.json()
     if (!response.ok) {
       error.value = data.detail ?? 'Une erreur est survenue.'
-      return
+      return null
     }
     emit('created', data)
     Object.assign(form, emptyForm())
-    close()
+    return data
   } catch {
     error.value = 'Impossible de contacter le serveur.'
+    return null
   } finally {
     saving.value = false
+  }
+}
+
+async function handleSubmit() {
+  const client = await createClient()
+  if (client) close()
+}
+
+const showNewMissionModal = ref(false)
+const createdClient = ref(null)
+
+async function handleCreateAndAddMission() {
+  if (!formRef.value?.reportValidity()) return
+  const client = await createClient()
+  if (client) {
+    createdClient.value = client
+    close()
+    showNewMissionModal.value = true
   }
 }
 </script>
@@ -82,6 +103,7 @@ async function handleSubmit() {
           <button
             type="button"
             class="rounded-full bg-[#0d3b56] px-6 py-2 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
+            @click="handleCreateAndAddMission"
           >
             Nouvelle Mission
           </button>
@@ -91,7 +113,7 @@ async function handleSubmit() {
         </div>
       </div>
 
-      <form class="mt-4 space-y-5" @submit.prevent="handleSubmit">
+      <form ref="formRef" class="mt-4 space-y-5" @submit.prevent="handleSubmit">
         <div>
           <h3 class="text-sm font-bold tracking-wide text-[#0d3b56]">IDENTITE</h3>
           <div class="mt-3 grid grid-cols-2 gap-6">
@@ -268,6 +290,8 @@ async function handleSubmit() {
     </div>
     </div>
   </div>
+
+  <NewMissionModal v-model="showNewMissionModal" :client="createdClient" />
 </template>
 
 <style scoped>

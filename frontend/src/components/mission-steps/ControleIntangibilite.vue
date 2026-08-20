@@ -177,14 +177,7 @@ const compteStatutStyles = {
             <tbody class="bg-white">
               <tr v-for="compte in controle.comptes" :key="compte.compte" class="border-t border-gray-100">
                 <td class="px-4 py-3">
-                  <div class="flex items-center gap-2">
-                    <span
-                      class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white"
-                    >
-                      {{ compte.n }}
-                    </span>
-                    <span class="font-medium text-[#0d3b56]">{{ compte.compte }}</span>
-                  </div>
+                  <span class="font-medium text-[#0d3b56]">{{ compte.compte }}</span>
                 </td>
                 <td class="px-4 py-3 text-gray-500">{{ compte.bilanOuvertureN }}</td>
                 <td class="px-4 py-3 text-gray-500">{{ compte.bilanClotureNMoins1 }}</td>

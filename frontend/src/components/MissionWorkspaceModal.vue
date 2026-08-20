@@ -224,7 +224,7 @@ function goProfile() {
         </p>
 
         <KeepAlive>
-          <component :is="activeStepComponent" :key="activeStepId" :mission="mission" />
+          <component :is="activeStepComponent" :key="activeStepId" :mission="mission" :client="client" />
         </KeepAlive>
       </main>
     </div>
