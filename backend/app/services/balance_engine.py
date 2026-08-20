@@ -1,8 +1,20 @@
 import re
 
 import openpyxl
+import xlrd
 
 TOLERANCE = 1.0
+
+COLUMN_KEYS = (
+    "numero",
+    "libelle",
+    "debitOuverture",
+    "creditOuverture",
+    "debitMouvement",
+    "creditMouvement",
+    "debitCloture",
+    "creditCloture",
+)
 
 # Repli utilisé quand aucun en-tête exploitable n'est détecté : balance à 8 colonnes
 # positionnelles simples (A=compte, B=libellé, C=débit ouverture, D=crédit ouverture,
@@ -29,7 +41,7 @@ def _normalize_header(value):
     return re.sub(r"\s+", " ", str(value)).strip().lower()
 
 
-def _detect_columns(sheet):
+def _detect_columns(rows):
     """Locate account/débit/crédit columns by searching header text instead of assuming
     fixed positions — real exports (e.g. Sage 100cloud) spread their column titles across
     several merged header rows, and the actual per-row values sit one column to the right
@@ -41,7 +53,7 @@ def _detect_columns(sheet):
     credit_cols = []
     header_row_end = -1
 
-    for row_index, row in enumerate(sheet.iter_rows(values_only=True, max_row=HEADER_SCAN_ROWS)):
+    for row_index, row in enumerate(rows[:HEADER_SCAN_ROWS]):
         for col_index, value in enumerate(row):
             text = _normalize_header(value)
             if not text:
@@ -49,7 +61,7 @@ def _detect_columns(sheet):
             if numero_col is None and "compte" in text and ("numero" in text or "numéro" in text):
                 numero_col = col_index
                 header_row_end = max(header_row_end, row_index)
-            elif ("intitulé" in text or "intitule" in text or "libellé" in text or "libelle" in text):
+            elif "intitulé" in text or "intitule" in text or "libellé" in text or "libelle" in text:
                 header_row_end = max(header_row_end, row_index)
             elif text in ("debit", "débit"):
                 debit_cols.append(col_index)
@@ -71,9 +83,7 @@ def _detect_columns(sheet):
     }
 
     libelle_col = numero_col + 1
-    for row_index, row in enumerate(sheet.iter_rows(values_only=True, max_row=header_row_end + 30)):
-        if row_index <= header_row_end:
-            continue
+    for row in rows[header_row_end + 1 : header_row_end + 31]:
         numero = row[numero_col] if len(row) > numero_col else None
         if numero is None or not re.match(r"^\d+$", str(numero).strip()):
             continue
@@ -127,47 +137,70 @@ def format_montant(value):
     return sign + " ".join(groups)
 
 
-def parse_balance_file(path):
+def _read_rows_xlsx(path):
     workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
     try:
-        sheet = workbook.worksheets[0]
-
-        columns = _detect_columns(sheet)
-        if columns is None:
-            columns = {**FALLBACK_COLUMN_INDEX, "dataStartRow": FALLBACK_DATA_START_ROW}
-
-        comptes = []
-        for row_index, row in enumerate(sheet.iter_rows(values_only=True)):
-            if row_index < columns["dataStartRow"]:
-                continue
-            if not row or len(row) <= columns["numero"]:
-                continue
-            numero = row[columns["numero"]]
-            if numero is None:
-                continue
-            numero = str(numero).strip()
-            if not re.match(r"^\d+$", numero):
-                continue
-
-            def cell(key):
-                index = columns[key]
-                return row[index] if len(row) > index else None
-
-            comptes.append(
-                {
-                    "numero": numero,
-                    "libelle": str(cell("libelle") or "").strip(),
-                    "debitOuverture": _to_float(cell("debitOuverture")),
-                    "creditOuverture": _to_float(cell("creditOuverture")),
-                    "debitMouvement": _to_float(cell("debitMouvement")),
-                    "creditMouvement": _to_float(cell("creditMouvement")),
-                    "debitCloture": _to_float(cell("debitCloture")),
-                    "creditCloture": _to_float(cell("creditCloture")),
-                }
-            )
-        return comptes
+        return list(workbook.worksheets[0].iter_rows(values_only=True))
     finally:
         workbook.close()
+
+
+def _read_rows_xls(path):
+    workbook = xlrd.open_workbook(path)
+    sheet = workbook.sheet_by_index(0)
+    return [sheet.row_values(row_index) for row_index in range(sheet.nrows)]
+
+
+def _extraire_comptes(rows, columns):
+    comptes = []
+    largeur_attendue = max(columns[key] for key in COLUMN_KEYS) + 1
+    data_start_row = columns.get("dataStartRow", FALLBACK_DATA_START_ROW)
+
+    for row_index, row in enumerate(rows):
+        if row_index < data_start_row:
+            continue
+        if not row:
+            continue
+        row = tuple(row)
+        # openpyxl (mode read_only) et xlrd peuvent renvoyer des lignes plus courtes que
+        # prévu dès que les dernières colonnes d'une ligne donnée sont vides : deux lignes
+        # de la même feuille peuvent avoir des longueurs différentes. On complète avec des
+        # cellules vides pour retrouver un alignement de colonnes fixe avant d'indexer.
+        if len(row) < largeur_attendue:
+            row = row + (None,) * (largeur_attendue - len(row))
+
+        numero = row[columns["numero"]]
+        if isinstance(numero, float) and numero.is_integer():
+            numero = int(numero)  # xlrd renvoie les numéros de compte "numériques" en float
+        if numero is None or (isinstance(numero, str) and not numero.strip()):
+            continue
+        numero = str(numero).strip()
+        if not re.match(r"^\d+$", numero):
+            continue
+
+        comptes.append(
+            {
+                "numero": numero,
+                "libelle": str(row[columns["libelle"]] or "").strip(),
+                "debitOuverture": _to_float(row[columns["debitOuverture"]]),
+                "creditOuverture": _to_float(row[columns["creditOuverture"]]),
+                "debitMouvement": _to_float(row[columns["debitMouvement"]]),
+                "creditMouvement": _to_float(row[columns["creditMouvement"]]),
+                "debitCloture": _to_float(row[columns["debitCloture"]]),
+                "creditCloture": _to_float(row[columns["creditCloture"]]),
+            }
+        )
+    return comptes
+
+
+def parse_balance_file(path):
+    rows = _read_rows_xls(path) if path.lower().endswith(".xls") else _read_rows_xlsx(path)
+
+    columns = _detect_columns(rows)
+    if columns is None:
+        columns = {**FALLBACK_COLUMN_INDEX, "dataStartRow": FALLBACK_DATA_START_ROW}
+
+    return _extraire_comptes(rows, columns)
 
 
 def _explication_intangibilite(statut, numero, solde_n, solde_n_moins1, ecart):

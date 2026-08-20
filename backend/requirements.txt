@@ -31,3 +31,4 @@ uvicorn==0.52.0
 watchfiles==1.2.0
 websockets==17.0
 Werkzeug==3.1.8
+xlrd==2.0.1
