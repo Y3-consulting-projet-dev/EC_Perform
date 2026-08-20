@@ -21,8 +21,8 @@ function logout() {
 
 const navItems = [
   { label: 'Tableau de bord', path: '/' },
-  { label: 'Clients', path: '/clients' },
   { label: 'Missions comptable', path: '/missions' },
+  { label: 'Clients', path: '/clients' },
 ]
 </script>
 

@@ -1,5 +1,26 @@
 <script setup>
-const controleIntangibilite = {
+import { computed } from 'vue'
+
+const props = defineProps({
+  mission: { type: Object, default: null },
+})
+
+function formatNumber(n) {
+  const sign = n < 0 ? '-' : ''
+  return sign + Math.abs(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+}
+
+function explicationFor(row) {
+  if (row.statut === 'Nouveau') {
+    return `Le compte ${row.compte} est présent dans l'exercice N avec un solde d'ouverture de ${formatNumber(row.soldeN)}, mais n'existait pas dans l'exercice N-1. Cela peut indiquer une création de compte, un reclassement ou une erreur de saisie.`
+  }
+  if (row.statut === 'Disparu') {
+    return `Le compte ${row.compte} était présent dans l'exercice N-1 avec un solde de ${formatNumber(row.soldeNMoins1)}, mais n'existe plus dans l'exercice N. Cela peut indiquer une clôture de compte, un reclassement ou une omission.`
+  }
+  return ''
+}
+
+const demoControleIntangibilite = {
   ecarts: 22,
   totalComptes: 63,
   periodeN: '2024',
@@ -18,8 +39,34 @@ const controleIntangibilite = {
   ],
 }
 
+const controleIntangibilite = computed(() => {
+  const rows = props.mission?.comptesIntangibilite
+  if (!rows?.length) return demoControleIntangibilite
+
+  const anomalies = rows.filter((row) => row.statut === 'Nouveau' || row.statut === 'Disparu')
+  const exerciceN = props.mission?.exercice ?? ''
+  const exerciceNMoins1 = exerciceN ? String(Number(exerciceN) - 1) : ''
+
+  return {
+    ecarts: anomalies.length,
+    totalComptes: rows.length,
+    periodeN: exerciceN,
+    periodeNMoins1: exerciceNMoins1,
+    comptes: anomalies.map((row, index) => ({
+      n: index + 1,
+      compte: row.compte,
+      bilanOuvertureN: row.statut === 'Disparu' ? 'N/A' : formatNumber(row.soldeN),
+      bilanClotureNMoins1: row.statut === 'Nouveau' ? 'N/A' : formatNumber(row.soldeNMoins1),
+      ecart: formatNumber(row.soldeN - row.soldeNMoins1),
+      statut: row.statut,
+      explication: explicationFor(row),
+    })),
+  }
+})
+
 const compteStatutStyles = {
   Nouveau: 'bg-sky-100 text-sky-700',
+  Disparu: 'bg-red-100 text-red-600',
 }
 </script>
 

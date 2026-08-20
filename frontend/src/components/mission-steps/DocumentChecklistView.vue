@@ -31,6 +31,7 @@ const insertForm = reactive({
   description: '',
   version: 'Electronique',
   dateDemande: '',
+  dateReception: '',
   statut: 'En attente de livraison',
 })
 const selectedFile = ref(null)
@@ -45,6 +46,7 @@ function openInsertDocument() {
   insertForm.description = ''
   insertForm.version = 'Electronique'
   insertForm.dateDemande = ''
+  insertForm.dateReception = ''
   insertForm.statut = 'En attente de livraison'
   selectedFile.value = null
   showInsertDocument.value = true
@@ -71,7 +73,7 @@ function handleInsertDocument() {
     description: insertForm.description.trim(),
     version: insertForm.version.trim() || 'Electronique',
     dateDemande: insertForm.dateDemande.trim() || '—',
-    dateReception: '—',
+    dateReception: insertForm.dateReception.trim() || '—',
     statut: insertForm.statut,
     fileName: selectedFile.value?.name ?? null,
     fileUrl: selectedFile.value ? URL.createObjectURL(selectedFile.value) : null,
@@ -240,7 +242,7 @@ function handleInsertDocument() {
             <p v-if="selectedFile" class="mt-1 text-xs text-gray-500">{{ selectedFile.name }}</p>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-3 gap-4">
             <div>
               <label for="doc-version" class="mb-1 block text-sm font-bold text-[#0d3b56]">Version</label>
               <input
@@ -255,9 +257,17 @@ function handleInsertDocument() {
               <input
                 id="doc-date-demande"
                 v-model="insertForm.dateDemande"
-                type="text"
-                placeholder="JJ/MM/AAAA"
-                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#0d3b56] placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#7cb342]"
+                type="date"
+                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
+              />
+            </div>
+            <div>
+              <label for="doc-date-reception" class="mb-1 block text-sm font-bold text-[#0d3b56]">Date de réception</label>
+              <input
+                id="doc-date-reception"
+                v-model="insertForm.dateReception"
+                type="date"
+                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
               />
             </div>
           </div>

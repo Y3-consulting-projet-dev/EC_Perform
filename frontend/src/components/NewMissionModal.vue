@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { mergeBalances, parseBalanceCsv, readFileAsText } from '../utils/balanceImport'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -59,12 +60,25 @@ const error = ref('')
 
 const currentYear = new Date().getFullYear()
 
+const balanceNFile = ref(null)
+const balanceNMoins1File = ref(null)
+
+function handleBalanceNChange(event) {
+  balanceNFile.value = event.target.files[0] ?? null
+}
+
+function handleBalanceNMoins1Change(event) {
+  balanceNMoins1File.value = event.target.files[0] ?? null
+}
+
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
       Object.assign(form, emptyForm())
       error.value = ''
+      balanceNFile.value = null
+      balanceNMoins1File.value = null
     }
   },
 )
@@ -74,10 +88,21 @@ function close() {
   emit('update:modelValue', false)
 }
 
+async function buildComptesIntangibilite() {
+  if (!balanceNFile.value || !balanceNMoins1File.value) return undefined
+  const [textN, textNMoins1] = await Promise.all([
+    readFileAsText(balanceNFile.value),
+    readFileAsText(balanceNMoins1File.value),
+  ])
+  return mergeBalances(parseBalanceCsv(textN), parseBalanceCsv(textNMoins1))
+}
+
 async function handleSubmit() {
   error.value = ''
   saving.value = true
   try {
+    const comptesIntangibilite = await buildComptesIntangibilite()
+
     const response = await fetch(`${apiUrl}/missions`, {
       method: 'POST',
       headers: authHeaders(),
@@ -95,6 +120,7 @@ async function handleSubmit() {
       error.value = data.detail ?? 'Une erreur est survenue.'
       return
     }
+    if (comptesIntangibilite) data.comptesIntangibilite = comptesIntangibilite
     emit('created', data)
     close()
   } catch {
@@ -184,6 +210,41 @@ async function handleSubmit() {
               type="date"
               class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
             />
+          </div>
+
+          <div class="col-span-2">
+            <h3 class="text-sm font-bold tracking-wide text-[#0d3b56]">BALANCES (facultatif)</h3>
+            <p class="mt-1 text-xs text-gray-500">
+              Fichiers CSV avec les colonnes Compte;Libellé;Solde — utilisées pour le Contrôle d'intangibilité.
+            </p>
+            <div class="mt-3 grid grid-cols-2 gap-4">
+              <div>
+                <label for="mission-balance-n" class="mb-1 block text-sm font-bold text-[#0d3b56]"
+                  >Balance N (exercice {{ currentYear }})</label
+                >
+                <input
+                  id="mission-balance-n"
+                  type="file"
+                  accept=".csv"
+                  class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#0d3b56] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-[#7cb342] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                  @change="handleBalanceNChange"
+                />
+                <p v-if="balanceNFile" class="mt-1 text-xs text-gray-500">{{ balanceNFile.name }}</p>
+              </div>
+              <div>
+                <label for="mission-balance-n-1" class="mb-1 block text-sm font-bold text-[#0d3b56]"
+                  >Balance N-1 (exercice {{ currentYear - 1 }})</label
+                >
+                <input
+                  id="mission-balance-n-1"
+                  type="file"
+                  accept=".csv"
+                  class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#0d3b56] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-[#7cb342] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                  @change="handleBalanceNMoins1Change"
+                />
+                <p v-if="balanceNMoins1File" class="mt-1 text-xs text-gray-500">{{ balanceNMoins1File.name }}</p>
+              </div>
+            </div>
           </div>
 
           <p v-if="error" class="col-span-2 text-sm text-red-600">{{ error }}</p>
