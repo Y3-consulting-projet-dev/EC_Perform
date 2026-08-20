@@ -231,14 +231,12 @@ def compute_intangibilite(comptes_n, comptes_n_moins1):
                 "ecart": format_montant(ecart),
                 "statut": statut,
                 "explication": _explication_intangibilite(statut, numero, solde_n, solde_n_moins1, ecart),
-                "_sortKey": (0 if statut != "OK" else 1, -abs(ecart)),
             }
         )
 
-    lignes.sort(key=lambda l: (l["_sortKey"], l["compte"]))
+    lignes.sort(key=lambda l: int(l["compte"]))
     for index, ligne in enumerate(lignes, start=1):
         ligne["n"] = index
-        del ligne["_sortKey"]
 
     ecarts = sum(1 for l in lignes if l["statut"] != "OK")
     return {"totalComptes": len(lignes), "ecarts": ecarts, "comptes": lignes}
