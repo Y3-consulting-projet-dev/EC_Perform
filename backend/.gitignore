@@ -4,3 +4,4 @@ virtualenv/
 __pycache__/
 *.pyc
 data/generated_passwords.csv
+uploads/

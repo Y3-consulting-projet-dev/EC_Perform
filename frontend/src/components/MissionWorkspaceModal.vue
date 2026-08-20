@@ -17,6 +17,41 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue'])
 
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+  }
+}
+
+const closing = ref(false)
+const closeError = ref('')
+
+async function closeMission() {
+  if (!props.mission?.id) return
+  closing.value = true
+  closeError.value = ''
+  try {
+    const response = await fetch(`${apiUrl}/missions/${props.mission.id}/cloturer`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({}),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      closeError.value = data.detail ?? 'Une erreur est survenue.'
+      return
+    }
+    props.mission.statut = data.statut
+  } catch {
+    closeError.value = 'Impossible de contacter le serveur.'
+  } finally {
+    closing.value = false
+  }
+}
+
 const employee = JSON.parse(localStorage.getItem('employee') ?? '{}')
 
 const initials = computed(() => {
@@ -164,6 +199,22 @@ function goProfile() {
           >
             {{ step.label }}
           </button>
+        </div>
+
+        <div class="mt-auto space-y-2 rounded-xl border border-white/15 p-3">
+          <p v-if="mission.statut === 'Terminée'" class="rounded-lg bg-[#7cb342] px-3 py-2 text-center text-sm font-semibold text-white">
+            Mission terminée
+          </p>
+          <button
+            v-else
+            type="button"
+            :disabled="closing"
+            class="w-full rounded-lg bg-[#7cb342] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6ca038] disabled:opacity-60"
+            @click="closeMission"
+          >
+            {{ closing ? 'Clôture...' : 'Clôturer la mission' }}
+          </button>
+          <p v-if="closeError" class="text-xs text-red-300">{{ closeError }}</p>
         </div>
       </aside>
 
