@@ -1,62 +1,88 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, watch } from 'vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   lead: { type: Object, default: null },
+  mission: { type: Object, default: null },
 })
 const emit = defineEmits(['update:modelValue'])
+
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+function authHeaders() {
+  return { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+}
 
 function close() {
   emit('update:modelValue', false)
 }
 
 function formatNumber(n) {
-  const sign = n < 0 ? '-' : ''
-  return sign + Math.abs(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+  const rounded = Math.round(n)
+  const sign = rounded < 0 ? '-' : ''
+  return sign + Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
 }
 
-const comptesParCycle = {
-  A: [
-    { compte: '512100', libelle: 'BANQUE CI - COMPTE COURANT', soldeN: 45200000, soldeNMoins1: 38900000, triangle: false },
-    { compte: '512200', libelle: 'BANQUE UBA - COMPTE COURANT', soldeN: 28500000, soldeNMoins1: 30100000, triangle: false },
-    { compte: '530000', libelle: 'CAISSE SIEGE', soldeN: 3200000, soldeNMoins1: 2800000, triangle: false },
-    { compte: '164000', libelle: 'EMPRUNTS AUPRES DES ETABLISSEMENTS DE CREDIT', soldeN: 21500000, soldeNMoins1: 21800000, triangle: false },
-  ],
-  B: [
-    { compte: '411100', libelle: 'CLIENTS - VENTES DE BIENS', soldeN: -520000000, soldeNMoins1: -380000000, triangle: false },
-    { compte: '411200', libelle: 'CLIENTS DOUTEUX', soldeN: -85000000, soldeNMoins1: -62000000, triangle: false },
-    { compte: '491000', libelle: 'PROVISIONS POUR DEPRECIATION CLIENTS', soldeN: -45000000, soldeNMoins1: -38000000, triangle: false },
-    { compte: '701000', libelle: 'VENTES DE PRODUITS FINIS', soldeN: -92100000, soldeNMoins1: -62100000, triangle: false },
-  ],
-  C: [
-    { compte: '401100', libelle: 'FOURNISSEURS - ACHATS DE BIENS', soldeN: 185400000, soldeNMoins1: 172300000, triangle: false },
-    { compte: '401200', libelle: 'FOURNISSEURS - EFFETS A PAYER', soldeN: 62000000, soldeNMoins1: 58700000, triangle: false },
-    { compte: '601000', libelle: 'ACHATS DE MARCHANDISES', soldeN: 71300000, soldeNMoins1: 71700000, triangle: false },
-  ],
-  D: [
-    { compte: '331100', libelle: 'MATIERES CONSOMMABLES/FEUILLARDS', soldeN: 11619421, soldeNMoins1: 11619421, triangle: false },
-    { compte: '331200', libelle: 'MATIERES CONSO/FIL DE FER PRECONT', soldeN: 35303639, soldeNMoins1: 32609421, triangle: true },
-    { compte: '331300', libelle: 'STOCK PALETTE', soldeN: 2091000, soldeNMoins1: 5619000, triangle: true },
-    { compte: '331400', libelle: 'STOCK HUILE ET GRAISSE', soldeN: 4199064, soldeNMoins1: 2080000, triangle: true },
-    { compte: '331500', libelle: 'GRAVILLON', soldeN: 1118794, soldeNMoins1: 1619421, triangle: false },
-    { compte: '331600', libelle: 'STOCK SABLE', soldeN: 438672, soldeNMoins1: 619421, triangle: false },
-  ],
+function formatVariation(lead) {
+  if (!lead || lead.variationPct === null) return '—'
+  const sign = lead.variationPct > 0 ? '+' : ''
+  return `${sign}${lead.variationPct.toFixed(1).replace('.', ',')} %`
 }
 
-const comptes = computed(() => {
-  const rows = comptesParCycle[props.lead?.code] ?? []
-  return rows.map((row) => {
-    const ecart = row.soldeN - row.soldeNMoins1
-    const pct = row.soldeNMoins1 ? (ecart / row.soldeNMoins1) * 100 : 0
-    return {
-      ...row,
-      ecart,
-      pct,
-      sens: ecart > 0 ? 'hausse' : ecart < 0 ? 'baisse' : 'stable',
+const sensStyles = {
+  hausse: 'text-green-600',
+  baisse: 'text-red-600',
+  stable: 'text-gray-500',
+}
+
+const comptes = ref([])
+const loading = ref(false)
+const error = ref('')
+
+async function fetchComptes() {
+  if (!props.lead?.code || !props.mission?.id) {
+    comptes.value = []
+    return
+  }
+  loading.value = true
+  error.value = ''
+  try {
+    const response = await fetch(`${apiUrl}/missions/${props.mission.id}/cycles/${props.lead.code}`, {
+      headers: authHeaders(),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      error.value = data.detail ?? 'Une erreur est survenue.'
+      comptes.value = []
+      return
     }
-  })
-})
+    comptes.value = data.comptes.map((row) => {
+      const ecart = row.soldeN - row.soldeNMoins1
+      // Division par la valeur absolue : un solde N-1 négatif (compte créditeur) ne doit
+      // pas inverser le signe du pourcentage par rapport au sens hausse/baisse.
+      const pct = row.soldeNMoins1 ? (ecart / Math.abs(row.soldeNMoins1)) * 100 : 0
+      return {
+        ...row,
+        ecart,
+        pct,
+        sens: ecart > 0 ? 'hausse' : ecart < 0 ? 'baisse' : 'stable',
+      }
+    })
+  } catch {
+    error.value = 'Impossible de contacter le serveur.'
+    comptes.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(
+  () => [props.modelValue, props.lead?.code],
+  ([open]) => {
+    if (open) fetchComptes()
+  },
+)
 </script>
 
 <template>
@@ -83,15 +109,16 @@ const comptes = computed(() => {
           </div>
           <div class="rounded-lg bg-gray-100 p-4">
             <p class="text-xs text-gray-500">Variation</p>
-            <p class="mt-1 text-sm font-bold" :class="lead.hausse ? 'text-red-600' : 'text-green-600'">
-              {{ lead.variance }}
-            </p>
+            <p class="mt-1 text-sm font-bold" :class="sensStyles[lead.sens]">{{ formatVariation(lead) }}</p>
           </div>
         </div>
 
         <h3 class="mt-6 text-sm font-bold text-[#0d3b56]">Comptes rattachés au cycle</h3>
 
-        <div v-if="comptes.length" class="mt-3 overflow-x-auto rounded-lg shadow-sm">
+        <p v-if="loading" class="mt-3 text-sm text-gray-400">Chargement des comptes...</p>
+        <p v-else-if="error" class="mt-3 text-sm text-red-600">{{ error }}</p>
+
+        <div v-else-if="comptes.length" class="mt-3 overflow-x-auto rounded-lg shadow-sm">
           <table class="w-full text-left text-sm">
             <thead>
               <tr class="bg-[#7cb342] text-sm font-bold text-white">
@@ -103,8 +130,8 @@ const comptes = computed(() => {
               </tr>
             </thead>
             <tbody class="bg-white">
-              <tr v-for="compte in comptes" :key="compte.compte" class="border-t border-gray-100">
-                <td class="px-4 py-3 font-medium text-[#0d3b56]">{{ compte.compte }}</td>
+              <tr v-for="compte in comptes" :key="compte.numero" class="border-t border-gray-100">
+                <td class="px-4 py-3 font-medium text-[#0d3b56]">{{ compte.numero }}</td>
                 <td class="px-4 py-3 text-[#0d3b56]">{{ compte.libelle }}</td>
                 <td class="px-4 py-3 text-right text-gray-500">{{ formatNumber(compte.soldeN) }}</td>
                 <td class="px-4 py-3 text-right text-gray-500">{{ formatNumber(compte.soldeNMoins1) }}</td>
@@ -114,10 +141,10 @@ const comptes = computed(() => {
                     <p class="text-gray-500">0,0 %</p>
                   </template>
                   <template v-else>
-                    <p class="font-semibold" :class="compte.sens === 'hausse' ? 'text-green-600' : 'text-red-600'">
-                      {{ compte.sens === 'hausse' ? '+' : '' }}{{ formatNumber(compte.ecart) }}<span v-if="compte.triangle"> ▲</span>
+                    <p class="font-semibold" :class="sensStyles[compte.sens]">
+                      {{ compte.sens === 'hausse' ? '+' : '' }}{{ formatNumber(compte.ecart) }}
                     </p>
-                    <p class="font-semibold" :class="compte.sens === 'hausse' ? 'text-green-600' : 'text-red-600'">
+                    <p class="font-semibold" :class="sensStyles[compte.sens]">
                       {{ compte.sens === 'hausse' ? '+' : '' }}{{ compte.pct.toFixed(1).replace('.', ',') }} %
                     </p>
                   </template>
@@ -126,7 +153,7 @@ const comptes = computed(() => {
             </tbody>
           </table>
         </div>
-        <p v-else class="mt-3 text-sm text-gray-500">Détail des comptes non encore disponible pour ce cycle.</p>
+        <p v-else class="mt-3 text-sm text-gray-500">Aucun compte rattaché à ce cycle sur les balances importées.</p>
       </div>
     </div>
   </div>

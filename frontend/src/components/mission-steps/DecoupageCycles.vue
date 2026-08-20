@@ -1,14 +1,45 @@
 <script setup>
-const cycles = [
-  { code: 'A', libelle: 'Trésorerie et financement', plage: '52 à 57', nbComptes: 14, soldeN: '98 400 000', soldeNMoins1: '93 600 000' },
-  { code: 'B', libelle: 'Ventes et clients', plage: '70', nbComptes: 29, soldeN: '-742 100 000', soldeNMoins1: '-542 100 000' },
-  { code: 'C', libelle: 'Achats et fournisseurs', plage: '60', nbComptes: 34, soldeN: '318 700 000', soldeNMoins1: '302 700 000' },
-  { code: 'D', libelle: 'Stocks', plage: '31 à 39', nbComptes: 22, soldeN: '187 300 000', soldeNMoins1: '200 000 000' },
-  { code: 'E', libelle: 'Immobilisations', plage: '21 à 28', nbComptes: 38, soldeN: '412 500 000', soldeNMoins1: '398 500 000' },
-  { code: 'F', libelle: 'Personnel et charges sociales', plage: '42 à 43', nbComptes: 21, soldeN: '-64 800 000', soldeNMoins1: '-34 800 000' },
-  { code: 'G', libelle: 'Fiscalité', plage: '52 à 57', nbComptes: 14, soldeN: '98 400 000', soldeNMoins1: '93 600 000' },
-  { code: 'H', libelle: 'Capitaux propres', plage: '10 à 13', nbComptes: 14, soldeN: '-520 000 000', soldeNMoins1: '-536 000 000' },
-]
+import { onMounted, ref } from 'vue'
+
+const props = defineProps({
+  mission: { type: Object, required: true },
+})
+
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+function authHeaders() {
+  return { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+}
+
+const cycles = ref([])
+const loading = ref(true)
+const error = ref('')
+const balancesInsuffisantes = ref(false)
+
+async function fetchCycles() {
+  loading.value = true
+  error.value = ''
+  balancesInsuffisantes.value = false
+  try {
+    const response = await fetch(`${apiUrl}/missions/${props.mission.id}/cycles`, { headers: authHeaders() })
+    const data = await response.json()
+    if (!response.ok) {
+      if (response.status === 404) {
+        balancesInsuffisantes.value = true
+      } else {
+        error.value = data.detail ?? 'Une erreur est survenue.'
+      }
+      return
+    }
+    cycles.value = data.cycles
+  } catch {
+    error.value = 'Impossible de contacter le serveur.'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(fetchCycles)
 </script>
 
 <template>
@@ -18,7 +49,20 @@ const cycles = [
       Génération automatique des cycles à partir de la balance importée en Phase 1.
     </p>
 
-    <div class="mt-6 overflow-x-auto rounded-lg shadow-sm">
+    <p v-if="loading" class="mt-6 text-sm text-gray-400">Chargement des cycles...</p>
+
+    <p
+      v-else-if="balancesInsuffisantes"
+      class="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700"
+    >
+      Au moins deux balances (exercice N et N-1) sont nécessaires pour générer les cycles. Déposez-les
+      depuis la Phase 1 – Ouverture et collecte, dans n'importe quelle catégorie : tout document dont le
+      nom ou la description contient « balance » est automatiquement détecté.
+    </p>
+
+    <p v-else-if="error" class="mt-4 text-sm text-red-600">{{ error }}</p>
+
+    <div v-else class="mt-6 overflow-x-auto rounded-lg shadow-sm">
       <table class="w-full text-left text-sm">
         <thead>
           <tr class="bg-[#7cb342] text-sm font-bold text-white">

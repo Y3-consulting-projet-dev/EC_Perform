@@ -1,6 +1,7 @@
 import re
 
 import openpyxl
+import xlrd
 
 TOLERANCE = 1.0
 
@@ -48,37 +49,65 @@ def format_montant(value):
     return sign + " ".join(groups)
 
 
-def parse_balance_file(path):
+def _iter_rows_xlsx(path):
     workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
     try:
-        sheet = workbook.worksheets[0]
-        comptes = []
-        for row_index, row in enumerate(sheet.iter_rows(values_only=True)):
-            if row_index == 0:
-                continue
-            if not row or len(row) <= COLUMN_INDEX["numero"]:
-                continue
-            numero = row[COLUMN_INDEX["numero"]]
-            if numero is None:
-                continue
-            numero = str(numero).strip()
-            if not re.match(r"^\d+$", numero):
-                continue
-            comptes.append(
-                {
-                    "numero": numero,
-                    "libelle": str(row[COLUMN_INDEX["libelle"]] or "").strip(),
-                    "debitOuverture": _to_float(row[COLUMN_INDEX["debitOuverture"]] if len(row) > 2 else None),
-                    "creditOuverture": _to_float(row[COLUMN_INDEX["creditOuverture"]] if len(row) > 3 else None),
-                    "debitMouvement": _to_float(row[COLUMN_INDEX["debitMouvement"]] if len(row) > 4 else None),
-                    "creditMouvement": _to_float(row[COLUMN_INDEX["creditMouvement"]] if len(row) > 5 else None),
-                    "debitCloture": _to_float(row[COLUMN_INDEX["debitCloture"]] if len(row) > 6 else None),
-                    "creditCloture": _to_float(row[COLUMN_INDEX["creditCloture"]] if len(row) > 7 else None),
-                }
-            )
-        return comptes
+        yield from workbook.worksheets[0].iter_rows(values_only=True)
     finally:
         workbook.close()
+
+
+def _iter_rows_xls(path):
+    workbook = xlrd.open_workbook(path)
+    sheet = workbook.sheet_by_index(0)
+    for row_index in range(sheet.nrows):
+        yield sheet.row_values(row_index)
+
+
+def _extraire_comptes(rows):
+    comptes = []
+    largeur_attendue = len(COLUMN_INDEX)
+    for row_index, row in enumerate(rows):
+        if row_index == 0:
+            continue
+        if not row:
+            continue
+        row = tuple(row)
+        # openpyxl (mode read_only) et xlrd peuvent renvoyer des lignes plus courtes que
+        # prévu dès que les dernières colonnes d'une ligne donnée sont vides : deux lignes
+        # de la même feuille peuvent avoir des longueurs différentes. On complète avec des
+        # cellules vides pour retrouver un alignement de colonnes fixe avant d'indexer.
+        if len(row) < largeur_attendue:
+            row = row + (None,) * (largeur_attendue - len(row))
+
+        numero = row[COLUMN_INDEX["numero"]]
+        if isinstance(numero, float) and numero.is_integer():
+            numero = int(numero)  # xlrd renvoie les numéros de compte "numériques" en float
+        if numero is None or (isinstance(numero, str) and not numero.strip()):
+            continue
+        numero = str(numero).strip()
+        if not re.match(r"^\d+$", numero):
+            continue
+
+        comptes.append(
+            {
+                "numero": numero,
+                "libelle": str(row[COLUMN_INDEX["libelle"]] or "").strip(),
+                "debitOuverture": _to_float(row[COLUMN_INDEX["debitOuverture"]]),
+                "creditOuverture": _to_float(row[COLUMN_INDEX["creditOuverture"]]),
+                "debitMouvement": _to_float(row[COLUMN_INDEX["debitMouvement"]]),
+                "creditMouvement": _to_float(row[COLUMN_INDEX["creditMouvement"]]),
+                "debitCloture": _to_float(row[COLUMN_INDEX["debitCloture"]]),
+                "creditCloture": _to_float(row[COLUMN_INDEX["creditCloture"]]),
+            }
+        )
+    return comptes
+
+
+def parse_balance_file(path):
+    if path.lower().endswith(".xls"):
+        return _extraire_comptes(_iter_rows_xls(path))
+    return _extraire_comptes(_iter_rows_xlsx(path))
 
 
 def _explication_intangibilite(statut, numero, solde_n, solde_n_moins1, ecart):

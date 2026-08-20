@@ -1,146 +1,113 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { onMounted, ref } from 'vue'
+
+const props = defineProps({
+  mission: { type: Object, required: true },
+})
+
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+  }
+}
 
 const risqueOptions = ['Élevé', 'Moyen', 'Faible']
-const collaborateurs = ['KAK', 'SCL', 'KKA', 'HBA']
-
 const risqueStyles = {
   Élevé: 'bg-red-100 text-red-600',
   Moyen: 'bg-amber-100 text-amber-700',
   Faible: 'bg-green-100 text-green-700',
 }
 
-const cabinetCollaborateurs = [
-  { initials: 'KAK', nom: 'K.A. Koné', role: 'Collaborateur confirmé', disponible: true },
-  { initials: 'HBA', nom: 'H. Ba', role: 'Collaborateur confirmé', disponible: true },
-  { initials: 'OPK', nom: 'O.P. Koné', role: '', disponible: true },
-  { initials: 'AK', nom: 'A. Kouadio', role: 'Assistant', disponible: true },
-  { initials: 'LTO', nom: 'L. Touré', role: 'Assistant', disponible: true },
-  { initials: 'MDK', nom: 'M.D. Koffi', role: 'Assistant', disponible: false },
-]
+const employees = ref([])
+const cycles = ref([])
+const loading = ref(true)
+const error = ref('')
+const savingCode = ref('')
 
-const showTeamPanel = ref(false)
-const equipeSelectionnee = ref([])
-const equipe = ref([])
+function initials(employee) {
+  const nom = (employee?.nom ?? '').trim()
+  const prenoms = (employee?.prenoms ?? '').trim().split(/\s+/).filter(Boolean)
+  return `${nom.charAt(0)}${prenoms[0]?.charAt(0) ?? ''}${prenoms[1]?.charAt(0) ?? ''}`.toUpperCase()
+}
 
-const equipeMembres = computed(() => cabinetCollaborateurs.filter((c) => equipe.value.includes(c.initials)))
-const assignationOptions = computed(() => (equipe.value.length ? equipe.value : collaborateurs))
+function employeeLabel(employee) {
+  return `${initials(employee)} — ${employee.prenoms} ${employee.nom}`
+}
 
-const cycles = reactive([
-  { code: 'A', libelle: 'Trésorerie et financement', risque: 'Élevé', assigneA: 'KAK', delai: 3 },
-  { code: 'B', libelle: 'Ventes et clients', risque: 'Élevé', assigneA: 'KAK', delai: 3 },
-  { code: 'C', libelle: 'Achats et fournisseurs', risque: 'Moyen', assigneA: 'SCL', delai: 2 },
-  { code: 'D', libelle: 'Stocks', risque: 'Moyen', assigneA: 'SCL', delai: 2 },
-  { code: 'E', libelle: 'Immobilisations', risque: 'Faible', assigneA: 'KKA', delai: 1 },
-  { code: 'F', libelle: 'Personnel et charges sociales', risque: 'Faible', assigneA: 'KKA', delai: 1 },
-  { code: 'G', libelle: 'Fiscalité', risque: 'Élevé', assigneA: 'HBA', delai: 3 },
-  { code: 'H', libelle: 'Capitaux propres', risque: 'Élevé', assigneA: 'HBA', delai: 3 },
-])
+function employeeById(id) {
+  return employees.value.find((e) => e.id === id) ?? null
+}
 
-function creerEquipe() {
-  equipe.value = [...equipeSelectionnee.value]
-  showTeamPanel.value = false
-  if (equipe.value.length) {
-    for (const cycle of cycles) {
-      if (!equipe.value.includes(cycle.assigneA)) cycle.assigneA = equipe.value[0]
+async function fetchData() {
+  loading.value = true
+  error.value = ''
+  try {
+    const [employeesRes, cyclesRes] = await Promise.all([
+      fetch(`${apiUrl}/employees`, { headers: authHeaders() }),
+      fetch(`${apiUrl}/missions/${props.mission.id}/repartition`, { headers: authHeaders() }),
+    ])
+    const employeesData = await employeesRes.json()
+    const cyclesData = await cyclesRes.json()
+    if (!employeesRes.ok) {
+      error.value = employeesData.detail ?? 'Une erreur est survenue.'
+      return
     }
+    if (!cyclesRes.ok) {
+      error.value = cyclesData.detail ?? 'Une erreur est survenue.'
+      return
+    }
+    employees.value = employeesData
+    cycles.value = cyclesData
+  } catch {
+    error.value = 'Impossible de contacter le serveur.'
+  } finally {
+    loading.value = false
   }
 }
+
+async function saveCycle(cycle) {
+  savingCode.value = cycle.code
+  error.value = ''
+  try {
+    const response = await fetch(`${apiUrl}/missions/${props.mission.id}/repartition/${cycle.code}`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ risque: cycle.risque, assigneA: cycle.assigneA, delai: cycle.delai }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      error.value = data.detail ?? 'Une erreur est survenue.'
+      return
+    }
+    Object.assign(cycle, data)
+  } catch {
+    error.value = 'Impossible de contacter le serveur.'
+  } finally {
+    savingCode.value = ''
+  }
+}
+
+onMounted(fetchData)
 </script>
 
 <template>
   <div>
-    <div class="mt-4 flex items-center justify-between">
-      <h1 class="text-lg font-extrabold text-[#0d3b56]">Répartition des cycles</h1>
+    <h1 class="mt-4 text-lg font-extrabold text-[#0d3b56]">Répartition des cycles</h1>
 
-      <div class="flex items-center gap-4">
-        <div v-if="equipeMembres.length" class="flex items-center -space-x-2">
-          <span
-            v-for="membre in equipeMembres"
-            :key="membre.initials"
-            :title="membre.nom"
-            class="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-[#2f6fb0] text-xs font-bold text-white"
-          >
-            {{ membre.initials }}
-          </span>
-        </div>
+    <p v-if="loading" class="mt-6 text-sm text-gray-400">Chargement...</p>
+    <p v-else-if="error" class="mt-4 text-sm text-red-600">{{ error }}</p>
 
-        <div class="relative">
-        <button
-          type="button"
-          class="flex items-center gap-2 rounded-lg bg-[#0d3b56] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
-          @click="showTeamPanel = !showTeamPanel"
-        >
-          Créer mon équipe
-          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
-
-        <div v-if="showTeamPanel" class="fixed inset-0 z-10" @click="showTeamPanel = false"></div>
-
-        <div
-          v-if="showTeamPanel"
-          class="absolute right-0 z-20 mt-2 w-96 rounded-xl border border-gray-200 bg-white p-4 shadow-lg"
-          @click.stop
-        >
-          <p class="text-xs text-gray-500">
-            Collaborateurs du cabinet — leur charge actuelle sur les autres missions est indiquée.
-          </p>
-
-          <div class="mt-3 space-y-1">
-            <label
-              v-for="collaborateur in cabinetCollaborateurs"
-              :key="collaborateur.initials"
-              class="flex items-center gap-3 rounded-lg px-2 py-2"
-              :class="collaborateur.disponible ? 'hover:bg-gray-50' : 'opacity-60'"
-            >
-              <input
-                type="checkbox"
-                :value="collaborateur.initials"
-                v-model="equipeSelectionnee"
-                :disabled="!collaborateur.disponible"
-                class="h-4 w-4 rounded border-gray-300 text-[#7cb342] focus:ring-[#7cb342]"
-              />
-              <span
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0d3b56] text-xs font-bold text-white"
-              >
-                {{ collaborateur.initials }}
-              </span>
-              <span class="flex-1">
-                <span class="block text-sm font-bold text-[#0d3b56]">
-                  <span v-if="!collaborateur.disponible" class="mr-1 text-xs font-semibold text-red-500"
-                    >Indisponible —</span
-                  >
-                  {{ collaborateur.nom }}
-                </span>
-                <span v-if="collaborateur.role" class="block text-xs text-gray-400">{{ collaborateur.role }}</span>
-              </span>
-            </label>
-          </div>
-
-          <div class="mt-4 flex justify-end">
-            <button
-              type="button"
-              class="rounded-lg bg-[#0d3b56] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
-              @click="creerEquipe"
-            >
-              Créer l'équipe
-            </button>
-          </div>
-        </div>
-      </div>
-      </div>
-    </div>
-
-    <div class="mt-6 overflow-x-auto rounded-lg shadow-sm">
+    <div v-else class="mt-6 overflow-x-auto rounded-lg shadow-sm">
       <table class="w-full text-left text-sm">
         <thead>
           <tr class="bg-[#7cb342] text-sm font-bold text-white">
             <th class="px-4 py-3">Cycle</th>
             <th class="px-4 py-3 text-center">Risque</th>
             <th class="px-4 py-3 text-center">Assigné à</th>
-            <th class="px-4 py-3 text-right">Délais</th>
+            <th class="px-4 py-3 text-right">Délai</th>
           </tr>
         </thead>
         <tbody class="bg-white">
@@ -159,24 +126,46 @@ function creerEquipe() {
               <div class="flex justify-center">
                 <select
                   v-model="cycle.risque"
-                  class="appearance-none rounded-full px-4 py-1.5 text-xs font-semibold outline-none"
+                  :disabled="savingCode === cycle.code"
+                  class="appearance-none rounded-full px-4 py-1.5 text-xs font-semibold outline-none disabled:opacity-60"
                   :class="risqueStyles[cycle.risque]"
+                  @change="saveCycle(cycle)"
                 >
                   <option v-for="option in risqueOptions" :key="option" :value="option">{{ option }}</option>
                 </select>
               </div>
             </td>
             <td class="px-4 py-3">
-              <div class="flex justify-center">
+              <div class="flex items-center justify-center gap-2">
+                <span
+                  v-if="employeeById(cycle.assigneA)"
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2f6fb0] text-xs font-bold text-white"
+                  :title="`${employeeById(cycle.assigneA).prenoms} ${employeeById(cycle.assigneA).nom}`"
+                >
+                  {{ initials(employeeById(cycle.assigneA)) }}
+                </span>
                 <select
                   v-model="cycle.assigneA"
-                  class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
+                  :disabled="savingCode === cycle.code"
+                  class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342] disabled:opacity-60"
+                  @change="saveCycle(cycle)"
                 >
-                  <option v-for="option in assignationOptions" :key="option" :value="option">{{ option }}</option>
+                  <option :value="null">—</option>
+                  <option v-for="option in employees" :key="option.id" :value="option.id">
+                    {{ employeeLabel(option) }}
+                  </option>
                 </select>
               </div>
             </td>
-            <td class="px-4 py-3 text-right text-gray-500">{{ cycle.delai }} jour(s)</td>
+            <td class="px-4 py-3 text-right">
+              <input
+                type="date"
+                v-model="cycle.delai"
+                :disabled="savingCode === cycle.code"
+                class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342] disabled:opacity-60"
+                @change="saveCycle(cycle)"
+              />
+            </td>
           </tr>
         </tbody>
       </table>
