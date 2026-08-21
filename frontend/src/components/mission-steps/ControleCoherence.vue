@@ -26,7 +26,7 @@ const loadingControle = ref(false)
 const error = ref('')
 
 function balanceLabel(balance) {
-  return balance.annee ? `${balance.annee} — ${balance.description}` : balance.description
+  return balance.annee ? `${balance.annee} - ${balance.description}` : balance.description
 }
 
 async function fetchBalances() {
@@ -331,7 +331,7 @@ onMounted(fetchBalances)
               class="rounded-xl border border-gray-200 bg-white p-5"
             >
               <p class="flex items-center justify-between text-sm font-bold text-[#0d3b56]">
-                <span>Classe {{ classe.classe }} — Sens normal attendu : {{ classe.sensNormal }}</span>
+                <span>Classe {{ classe.classe }} - Sens normal attendu : {{ classe.sensNormal }}</span>
                 <span
                   class="rounded-full px-3 py-1 text-xs font-semibold"
                   :class="classe.anomalies.length ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'"

@@ -50,7 +50,7 @@ const progressPercent = computed(() =>
 )
 
 function formatDate(value) {
-  if (!value) return '—'
+  if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleDateString('fr-FR')
@@ -60,9 +60,10 @@ const statutStyles = {
   'En attente de livraison': 'bg-gray-100 text-gray-600',
   'Partiellement reçu': 'bg-amber-100 text-amber-700',
   Reçu: 'bg-[#7cb342] text-white',
+  'Non applicable': 'bg-slate-200 text-slate-700',
 }
 
-const statutOptions = ['En attente de livraison', 'Partiellement reçu', 'Reçu']
+const statutOptions = ['En attente de livraison', 'Partiellement reçu', 'Reçu', 'Non applicable']
 const NEW_CATEGORY = '__new__'
 
 const updatingId = ref(null)
@@ -164,7 +165,7 @@ async function handleInsertDocument() {
   <div>
     <div class="mt-4 flex items-start justify-between gap-6">
       <div class="flex-1">
-        <h1 class="text-lg font-extrabold text-[#0d3b56]">{{ checklist.recus }}/{{ checklist.total }} documents reçus</h1>
+        <h1 class="text-lg font-extrabold text-[#0d3b56]">{{ checklist.recus }}/{{ checklist.total }} documents traités</h1>
         <div class="mt-3 flex max-w-md items-center gap-3">
           <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-200">
             <div class="h-full rounded-full bg-[#7cb342]" :style="{ width: progressPercent + '%' }"></div>
@@ -197,7 +198,7 @@ async function handleInsertDocument() {
     </button>
 
     <p v-if="phaseAdvancedLabel" class="mt-4 rounded-lg bg-[#e2f0e7] px-4 py-3 text-sm font-semibold text-[#0d3b56]">
-      Tous les documents ont été reçus : la mission est passée à la phase 2 – {{ phaseAdvancedLabel }}.
+      Tous les documents ont été traités : la mission est passée à la phase 2 – {{ phaseAdvancedLabel }}.
     </p>
     <p v-if="loadError" class="mt-4 text-sm text-red-600">{{ loadError }}</p>
     <p v-if="updateError" class="mt-4 text-sm text-red-600">{{ updateError }}</p>

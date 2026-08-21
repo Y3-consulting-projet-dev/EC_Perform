@@ -15,6 +15,8 @@ DEFAULT_DOCUMENT_CATEGORIES = [
     "CADRE FISCALE ET SOCIALE",
 ]
 
+DOCUMENT_STATUTS_TRAITES = ("Reçu", "Non applicable")
+
 MISSION_STEP_LABELS = [
     "Ouverture et collecte",
     "Contrôle",
@@ -50,14 +52,17 @@ def mission_step(doc):
 
 def next_phase_if_collecte_complete(current_phase, documents):
     """Advance from phase 1 (Ouverture et collecte) to phase 2 (Contrôle) once every
-    requested document has been received. Returns the new phase string, or None if
-    the mission isn't currently on phase 1 or the checklist isn't 100% complete."""
+    requested document has been received or marked non applicable. Returns the new phase
+    string, or None if the mission isn't currently on phase 1 or the checklist isn't 100%
+    complete."""
     if mission_step({"phase": current_phase}) != 1:
         return None
     categories = documents.get("categories", [])
     total = sum(len(c.get("documents", [])) for c in categories)
-    recus = sum(1 for c in categories for d in c.get("documents", []) if d.get("statut") == "Reçu")
-    if total > 0 and recus == total:
+    traites = sum(
+        1 for c in categories for d in c.get("documents", []) if d.get("statut") in DOCUMENT_STATUTS_TRAITES
+    )
+    if total > 0 and traites == total:
         return f"2/7 · {MISSION_STEP_LABELS[1]}"
     return None
 

@@ -11,7 +11,7 @@ export const clients = reactive([
     adresse: '01 BP 453 Abidjan 01',
     exerciceComptable: '01/01 – 31/12',
     ville: 'New York',
-    contactPrincipal: 'M. Aka — Directeur général',
+    contactPrincipal: 'M. Aka - Directeur général',
     email: 'contact@microsoft.ci',
     telephone: '+225 27 20 30 40 50',
     missionsEnCours: 1,

@@ -70,11 +70,24 @@ const error = ref('')
 
 const currentYear = new Date().getFullYear()
 
+const balanceNFile = ref(null)
+const balanceNMoins1File = ref(null)
+
+function handleBalanceNChange(event) {
+  balanceNFile.value = event.target.files[0] ?? null
+}
+
+function handleBalanceNMoins1Change(event) {
+  balanceNMoins1File.value = event.target.files[0] ?? null
+}
+
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
       Object.assign(form, emptyForm())
+      balanceNFile.value = null
+      balanceNMoins1File.value = null
       error.value = ''
     }
   },
@@ -83,6 +96,26 @@ watch(
 function close() {
   error.value = ''
   emit('update:modelValue', false)
+}
+
+async function uploadBalanceDocument(missionId, file, description) {
+  const formData = new FormData()
+  formData.append('categorie', 'BALANCES')
+  formData.append('description', description)
+  formData.append('version', 'Electronique')
+  formData.append('dateDemande', '')
+  formData.append('statut', 'Reçu')
+  formData.append('fichier', file)
+
+  const response = await fetch(`${apiUrl}/missions/${missionId}/documents`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
+    body: formData,
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.detail ?? 'Une erreur est survenue.')
+  }
 }
 
 async function handleSubmit() {
@@ -106,6 +139,22 @@ async function handleSubmit() {
       error.value = data.detail ?? 'Une erreur est survenue.'
       return
     }
+
+    if (balanceNFile.value || balanceNMoins1File.value) {
+      try {
+        if (balanceNFile.value) {
+          await uploadBalanceDocument(data.id, balanceNFile.value, `Balance N ${currentYear}`)
+        }
+        if (balanceNMoins1File.value) {
+          await uploadBalanceDocument(data.id, balanceNMoins1File.value, `Balance N-1 ${currentYear - 1}`)
+        }
+      } catch (uploadError) {
+        error.value = `Mission créée, mais l'import d'une balance a échoué : ${uploadError.message}`
+        emit('created', data)
+        return
+      }
+    }
+
     emit('created', data)
     close()
   } catch {
@@ -195,6 +244,36 @@ async function handleSubmit() {
               type="date"
               class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
             />
+          </div>
+
+          <div class="col-span-2">
+            <h3 class="mb-3 text-sm font-bold text-[#0d3b56]">Balances (facultatif)</h3>
+            <div class="grid grid-cols-2 gap-x-10 gap-y-6">
+              <div>
+                <label for="mission-balance-n" class="mb-1 block text-sm font-bold text-[#0d3b56]">Balance N</label>
+                <input
+                  id="mission-balance-n"
+                  type="file"
+                  accept=".xlsx,.xls"
+                  class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#0d3b56] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-[#7cb342] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                  @change="handleBalanceNChange"
+                />
+                <p v-if="balanceNFile" class="mt-1 text-xs text-gray-500">{{ balanceNFile.name }}</p>
+              </div>
+              <div>
+                <label for="mission-balance-n-1" class="mb-1 block text-sm font-bold text-[#0d3b56]"
+                  >Balance N-1</label
+                >
+                <input
+                  id="mission-balance-n-1"
+                  type="file"
+                  accept=".xlsx,.xls"
+                  class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#0d3b56] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-[#7cb342] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                  @change="handleBalanceNMoins1Change"
+                />
+                <p v-if="balanceNMoins1File" class="mt-1 text-xs text-gray-500">{{ balanceNMoins1File.name }}</p>
+              </div>
+            </div>
           </div>
 
           <p v-if="error" class="col-span-2 text-sm text-red-600">{{ error }}</p>

@@ -21,7 +21,7 @@ const loadingControle = ref(false)
 const error = ref('')
 
 function balanceLabel(balance) {
-  return balance.annee ? `${balance.annee} — ${balance.description}` : balance.description
+  return balance.annee ? `${balance.annee} - ${balance.description}` : balance.description
 }
 
 async function fetchBalances() {
@@ -83,6 +83,8 @@ onMounted(fetchBalances)
 const selectionInvalid = computed(
   () => selectedN.value && selectedNMoins1.value && selectedN.value === selectedNMoins1.value,
 )
+
+const comptesAffiches = computed(() => controle.value?.comptes.filter((c) => c.statut !== 'OK') ?? [])
 
 const compteStatutStyles = {
   Nouveau: 'bg-sky-100 text-sky-700',
@@ -175,7 +177,7 @@ const compteStatutStyles = {
               </tr>
             </thead>
             <tbody class="bg-white">
-              <tr v-for="compte in controle.comptes" :key="compte.compte" class="border-t border-gray-100">
+              <tr v-for="compte in comptesAffiches" :key="compte.compte" class="border-t border-gray-100">
                 <td class="px-4 py-3">
                   <span class="font-medium text-[#0d3b56]">{{ compte.compte }}</span>
                 </td>

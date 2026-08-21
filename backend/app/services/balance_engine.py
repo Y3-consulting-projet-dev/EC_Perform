@@ -43,7 +43,7 @@ def _normalize_header(value):
 
 def _detect_columns(rows):
     """Locate account/débit/crédit columns by searching header text instead of assuming
-    fixed positions — real exports (e.g. Sage 100cloud) spread their column titles across
+    fixed positions - real exports (e.g. Sage 100cloud) spread their column titles across
     several merged header rows, and the actual per-row values sit one column to the right
     of each 'Débit'/'Crédit' title cell. The libellé column can't be located the same way
     (its header text sits over a wide merge that doesn't line up with the data column), so
@@ -236,6 +236,8 @@ def compute_intangibilite(comptes_n, comptes_n_moins1):
 
     lignes = []
     for numero in tous_numeros:
+        if numero[0] not in "12345":
+            continue
         compte_n = par_numero_n.get(numero)
         compte_n_moins1 = par_numero_n_moins1.get(numero)
 
@@ -264,14 +266,12 @@ def compute_intangibilite(comptes_n, comptes_n_moins1):
                 "ecart": format_montant(ecart),
                 "statut": statut,
                 "explication": _explication_intangibilite(statut, numero, solde_n, solde_n_moins1, ecart),
-                "_sortKey": (0 if statut != "OK" else 1, -abs(ecart)),
             }
         )
 
-    lignes.sort(key=lambda l: (l["_sortKey"], l["compte"]))
+    lignes.sort(key=lambda l: int(l["compte"]))
     for index, ligne in enumerate(lignes, start=1):
         ligne["n"] = index
-        del ligne["_sortKey"]
 
     ecarts = sum(1 for l in lignes if l["statut"] != "OK")
     return {"totalComptes": len(lignes), "ecarts": ecarts, "comptes": lignes}
@@ -418,7 +418,7 @@ def compute_vraisemblance(comptes):
                     "libelle": c["libelle"],
                     "solde": format_montant(solde),
                     "gravite": gravite,
-                    "motif": f"{libelle} — {motif}",
+                    "motif": f"{libelle} - {motif}",
                 }
             )
 
@@ -463,7 +463,7 @@ def compute_coherence(comptes):
     else:
         equilibre_explication = (
             f"Le système a constaté que le total des débits ({format_montant(total_debits)} FCFA) n'est PAS "
-            f"égal au total des crédits ({format_montant(total_credits)} FCFA) — écart de "
+            f"égal au total des crédits ({format_montant(total_credits)} FCFA) - écart de "
             f"{format_montant(total_debits - total_credits)} FCFA en additionnant les colonnes 'Débit fin' et "
             f"'Crédit fin' de tous les comptes."
         )

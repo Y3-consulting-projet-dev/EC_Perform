@@ -25,7 +25,7 @@ function formatNumber(n) {
 }
 
 function formatVariation(lead) {
-  if (!lead || lead.variationPct === null) return '—'
+  if (!lead || lead.variationPct === null) return '-'
   const sign = lead.variationPct > 0 ? '+' : ''
   return `${sign}${lead.variationPct.toFixed(1).replace('.', ',')} %`
 }
@@ -93,7 +93,7 @@ watch(
   >
     <div class="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-xl">
       <div class="flex items-center justify-between border-b border-gray-100 px-8 py-5">
-        <h2 class="text-lg font-bold text-[#0d3b56]">Feuille maîtresse — Cycle {{ lead.code }} · {{ lead.libelle }}</h2>
+        <h2 class="text-lg font-bold text-[#0d3b56]">Feuille maîtresse - Cycle {{ lead.code }} · {{ lead.libelle }}</h2>
         <button type="button" class="text-gray-400 hover:text-gray-600" aria-label="Fermer" @click="close">✕</button>
       </div>
 

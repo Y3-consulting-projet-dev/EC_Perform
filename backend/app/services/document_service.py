@@ -7,7 +7,12 @@ from fastapi import HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from app.db.session import db
-from app.services.mission_service import default_documents, get_mission_or_404, next_phase_if_collecte_complete
+from app.services.mission_service import (
+    DOCUMENT_STATUTS_TRAITES,
+    default_documents,
+    get_mission_or_404,
+    next_phase_if_collecte_complete,
+)
 
 UPLOADS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "uploads"))
 os.makedirs(UPLOADS_DIR, exist_ok=True)
@@ -19,7 +24,11 @@ def serialize_documents(mission_doc):
     documents = mission_doc.get("documents") or default_documents()
     categories = documents.get("categories", [])
     total = sum(len(c.get("documents", [])) for c in categories)
-    recus = sum(1 for c in categories for d in c.get("documents", []) if d.get("statut") == "Reçu")
+    # "recus" compte aussi les documents marqués "Non applicable" : ils sont traités au
+    # même titre qu'un document reçu et ne doivent pas bloquer indéfiniment la checklist.
+    recus = sum(
+        1 for c in categories for d in c.get("documents", []) if d.get("statut") in DOCUMENT_STATUTS_TRAITES
+    )
     return {
         "recus": recus,
         "total": total,
@@ -93,8 +102,8 @@ def add_mission_document(
         "id": uuid.uuid4().hex,
         "description": description,
         "version": version.strip() or "Electronique",
-        "dateDemande": date_demande.strip() or "—",
-        "dateReception": datetime.now(timezone.utc).strftime("%Y-%m-%d") if statut == "Reçu" else "—",
+        "dateDemande": date_demande.strip() or "-",
+        "dateReception": datetime.now(timezone.utc).strftime("%Y-%m-%d") if statut == "Reçu" else "-",
         "statut": statut,
         "fileName": file_name,
         "fileUrl": file_url,
