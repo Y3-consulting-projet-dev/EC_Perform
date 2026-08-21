@@ -14,6 +14,14 @@ function authHeaders() {
   }
 }
 
+// Seuls ces grades peuvent créer l'équipe et affecter les cycles (risque, collaborateur,
+// délai) ; les autres grades (ex. Assistant) sont en lecture seule sur cette page. Doit
+// rester cohérent avec CYCLE_MANAGEMENT_GRADES côté backend (repartition_service.py).
+const CYCLE_MANAGEMENT_GRADES = ['senior', 'assistant manager', 'manager', 'senior manager', 'associé', 'associe']
+
+const currentEmployee = JSON.parse(localStorage.getItem('employee') ?? '{}')
+const canManage = computed(() => CYCLE_MANAGEMENT_GRADES.includes((currentEmployee.grade ?? '').trim().toLowerCase()))
+
 const risqueOptions = ['Élevé', 'Moyen', 'Faible']
 const risqueStyles = {
   Élevé: 'bg-red-100 text-red-600',
@@ -41,16 +49,25 @@ function employeeById(id) {
   return employees.value.find((e) => e.id === id) ?? null
 }
 
+function formatDate(value) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString('fr-FR')
+}
+
 async function fetchData() {
   loading.value = true
   error.value = ''
   try {
-    const [employeesRes, cyclesRes] = await Promise.all([
+    const [employeesRes, cyclesRes, equipeRes] = await Promise.all([
       fetch(`${apiUrl}/employees`, { headers: authHeaders() }),
       fetch(`${apiUrl}/missions/${props.mission.id}/repartition`, { headers: authHeaders() }),
+      fetch(`${apiUrl}/missions/${props.mission.id}/equipe`, { headers: authHeaders() }),
     ])
     const employeesData = await employeesRes.json()
     const cyclesData = await cyclesRes.json()
+    const equipeData = await equipeRes.json()
     if (!employeesRes.ok) {
       error.value = employeesData.detail ?? 'Une erreur est survenue.'
       return
@@ -59,8 +76,13 @@ async function fetchData() {
       error.value = cyclesData.detail ?? 'Une erreur est survenue.'
       return
     }
+    if (!equipeRes.ok) {
+      error.value = equipeData.detail ?? 'Une erreur est survenue.'
+      return
+    }
     employees.value = employeesData
     cycles.value = cyclesData
+    equipe.value = equipeData.equipe ?? []
   } catch {
     error.value = 'Impossible de contacter le serveur.'
   } finally {
@@ -69,6 +91,7 @@ async function fetchData() {
 }
 
 async function saveCycle(cycle) {
+  if (!canManage.value) return
   savingCode.value = cycle.code
   error.value = ''
   try {
@@ -100,13 +123,31 @@ const equipeMembres = computed(() => employees.value.filter((e) => equipe.value.
 const assignationOptions = computed(() => (equipe.value.length ? equipeMembres.value : employees.value))
 
 function openTeamPanel() {
+  if (!canManage.value) return
   equipeSelectionnee.value = [...equipe.value]
   showTeamPanel.value = !showTeamPanel.value
 }
 
 async function creerEquipe() {
-  equipe.value = [...equipeSelectionnee.value]
   showTeamPanel.value = false
+  if (!canManage.value) return
+  error.value = ''
+  try {
+    const response = await fetch(`${apiUrl}/missions/${props.mission.id}/equipe`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ employeeIds: equipeSelectionnee.value }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      error.value = data.detail ?? 'Une erreur est survenue.'
+      return
+    }
+    equipe.value = data.equipe
+  } catch {
+    error.value = 'Impossible de contacter le serveur.'
+    return
+  }
   if (!equipe.value.length) return
   for (const cycle of cycles.value) {
     if (!equipe.value.includes(cycle.assigneA)) {
@@ -134,7 +175,7 @@ async function creerEquipe() {
           </span>
         </div>
 
-        <div class="relative">
+        <div v-if="canManage" class="relative">
           <button
             type="button"
             class="flex items-center gap-2 rounded-lg bg-[#0d3b56] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
@@ -221,6 +262,7 @@ async function creerEquipe() {
             <td class="px-4 py-3">
               <div class="flex justify-center">
                 <select
+                  v-if="canManage"
                   v-model="cycle.risque"
                   :disabled="savingCode === cycle.code"
                   class="appearance-none rounded-full px-4 py-1.5 text-xs font-semibold outline-none disabled:opacity-60"
@@ -229,6 +271,13 @@ async function creerEquipe() {
                 >
                   <option v-for="option in risqueOptions" :key="option" :value="option">{{ option }}</option>
                 </select>
+                <span
+                  v-else
+                  class="rounded-full px-4 py-1.5 text-xs font-semibold"
+                  :class="risqueStyles[cycle.risque]"
+                >
+                  {{ cycle.risque }}
+                </span>
               </div>
             </td>
             <td class="px-4 py-3">
@@ -241,6 +290,7 @@ async function creerEquipe() {
                   {{ initials(employeeById(cycle.assigneA)) }}
                 </span>
                 <select
+                  v-if="canManage"
                   v-model="cycle.assigneA"
                   :disabled="savingCode === cycle.code"
                   class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342] disabled:opacity-60"
@@ -251,16 +301,21 @@ async function creerEquipe() {
                     {{ employeeLabel(option) }}
                   </option>
                 </select>
+                <span v-else class="text-sm text-[#0d3b56]">
+                  {{ employeeById(cycle.assigneA) ? `${employeeById(cycle.assigneA).prenoms} ${employeeById(cycle.assigneA).nom}` : '—' }}
+                </span>
               </div>
             </td>
             <td class="px-4 py-3 text-right">
               <input
+                v-if="canManage"
                 type="date"
                 v-model="cycle.delai"
                 :disabled="savingCode === cycle.code"
                 class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342] disabled:opacity-60"
                 @change="saveCycle(cycle)"
               />
+              <span v-else class="text-gray-500">{{ formatDate(cycle.delai) }}</span>
             </td>
           </tr>
         </tbody>
