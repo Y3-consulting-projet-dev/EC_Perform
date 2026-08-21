@@ -21,7 +21,7 @@ const loadingControle = ref(false)
 const error = ref('')
 
 function balanceLabel(balance) {
-  return balance.annee ? `${balance.annee} — ${balance.description}` : balance.description
+  return balance.annee ? `${balance.annee} - ${balance.description}` : balance.description
 }
 
 async function fetchBalances() {

@@ -138,7 +138,7 @@ const infoRows = [
           <div v-for="(row, index) in infoRows" :key="index" class="grid grid-cols-3 gap-6">
             <div v-for="field in row" :key="field.key">
               <p class="text-sm font-bold text-[#0d3b56]">{{ field.label }}</p>
-              <p class="mt-1 text-sm text-gray-600">{{ client[field.key] || '—' }}</p>
+              <p class="mt-1 text-sm text-gray-600">{{ client[field.key] || '-' }}</p>
             </div>
           </div>
         </div>
@@ -171,7 +171,7 @@ const infoRows = [
                     {{ mission.rapport }}
                   </span>
                   <span v-else-if="mission.rapport" class="text-gray-500">{{ mission.rapport }}</span>
-                  <span v-else class="text-gray-300">—</span>
+                  <span v-else class="text-gray-300">-</span>
                 </td>
                 <td class="py-3">
                   <button

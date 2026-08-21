@@ -42,7 +42,7 @@ function initials(employee) {
 }
 
 function employeeLabel(employee) {
-  return `${initials(employee)} — ${employee.prenoms} ${employee.nom}`
+  return `${initials(employee)} - ${employee.prenoms} ${employee.nom}`
 }
 
 function employeeById(id) {
@@ -296,7 +296,7 @@ async function creerEquipe() {
                   class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342] disabled:opacity-60"
                   @change="saveCycle(cycle)"
                 >
-                  <option :value="null">—</option>
+                  <option :value="null">-</option>
                   <option v-for="option in assignationOptions" :key="option.id" :value="option.id">
                     {{ employeeLabel(option) }}
                   </option>
