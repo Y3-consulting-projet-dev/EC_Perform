@@ -326,7 +326,7 @@ async function handleInsertDocument() {
             <p v-if="selectedFile" class="mt-1 text-xs text-gray-500">{{ selectedFile.name }}</p>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label for="doc-version" class="mb-1 block text-sm font-bold text-[#0d3b56]">Version</label>
               <input

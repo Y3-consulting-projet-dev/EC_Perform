@@ -116,7 +116,7 @@ async function handleCreateAndAddMission() {
       <form ref="formRef" class="mt-4 space-y-5" @submit.prevent="handleSubmit">
         <div>
           <h3 class="text-sm font-bold tracking-wide text-[#0d3b56]">IDENTITE</h3>
-          <div class="mt-3 grid grid-cols-2 gap-6">
+          <div class="mt-3 grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div>
               <label for="raisonSociale" class="mb-1 block text-xs font-semibold text-[#0d3b56]">Raison sociale</label>
               <input
@@ -164,7 +164,7 @@ async function handleCreateAndAddMission() {
 
         <div>
           <h3 class="text-sm font-bold tracking-wide text-[#0d3b56]">IMMATRICULATION FISCAL</h3>
-          <div class="mt-3 grid grid-cols-3 gap-6">
+          <div class="mt-3 grid grid-cols-1 gap-6 sm:grid-cols-3">
             <div>
               <label for="rccm" class="mb-1 block text-xs font-semibold text-[#0d3b56]">N° RCCM</label>
               <input
@@ -201,7 +201,7 @@ async function handleCreateAndAddMission() {
 
         <div>
           <h3 class="text-sm font-bold tracking-wide text-[#0d3b56]">ADRESSE ET CONTACT</h3>
-          <div class="mt-3 grid grid-cols-3 gap-6">
+          <div class="mt-3 grid grid-cols-1 gap-6 sm:grid-cols-3">
             <div>
               <label for="adresse" class="mb-1 block text-xs font-semibold text-[#0d3b56]">Adresse</label>
               <input
@@ -235,7 +235,7 @@ async function handleCreateAndAddMission() {
             </div>
           </div>
 
-          <div class="mt-4 grid grid-cols-3 gap-6">
+          <div class="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-3">
             <div>
               <label for="contactPrincipal" class="mb-1 block text-xs font-semibold text-[#0d3b56]">Contact principal</label>
               <input

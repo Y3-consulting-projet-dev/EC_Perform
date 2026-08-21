@@ -98,7 +98,7 @@ watch(
       </div>
 
       <div class="scrollbar-hide max-h-[calc(90vh-73px)] overflow-y-auto p-8">
-        <div class="grid grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div class="rounded-lg bg-gray-100 p-4">
             <p class="text-xs text-gray-500">Solde N</p>
             <p class="mt-1 text-sm font-bold text-[#0d3b56]">{{ lead.soldeN }}</p>

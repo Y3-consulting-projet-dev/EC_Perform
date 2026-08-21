@@ -146,7 +146,7 @@ function goProfile() {
 
 <template>
   <div v-if="modelValue && client && mission" class="fixed inset-0 z-50 flex bg-[#eef2f6]">
-    <aside class="flex w-64 shrink-0 flex-col gap-6 overflow-y-auto bg-[#0d3b56] px-4 py-6">
+    <aside class="flex w-60 shrink-0 flex-col gap-6 overflow-y-auto bg-[#0d3b56] px-4 py-6">
       <button type="button" class="-mt-4 flex justify-start" @click="goHome">
         <img :src="logo" alt="Y3 Audit & Conseils" class="h-auto w-1/2" />
       </button>
@@ -167,12 +167,12 @@ function goProfile() {
           :key="group.title"
           class="space-y-2 rounded-xl border border-white/15 p-3"
         >
-          <p class="px-1 text-sm font-bold text-white">{{ group.title }}</p>
+          <p class="whitespace-nowrap px-1 text-[13px] font-bold text-white">{{ group.title }}</p>
           <button
             v-for="step in group.steps"
             :key="step.id"
             type="button"
-            class="block w-full rounded-lg px-4 py-3 text-left text-sm font-semibold transition"
+            class="block w-full whitespace-nowrap rounded-lg px-4 py-3 text-left text-[13px] font-semibold transition"
             :class="
               activeStepId === step.id
                 ? 'bg-[#e2f0e7] text-[#0d3b56]'
@@ -201,7 +201,7 @@ function goProfile() {
         </div>
       </aside>
 
-      <div class="flex min-h-0 flex-1 flex-col">
+      <div class="flex min-h-0 min-w-0 flex-1 flex-col">
         <header class="flex shrink-0 items-center justify-end border-b border-gray-200 bg-white px-8 py-4">
           <button type="button" class="flex items-center gap-3" @click="goProfile">
             <span

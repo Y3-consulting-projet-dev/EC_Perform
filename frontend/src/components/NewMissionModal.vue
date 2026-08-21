@@ -182,7 +182,7 @@ async function handleSubmit() {
           Retour
         </button>
 
-        <form class="mt-8 grid grid-cols-2 gap-x-10 gap-y-6" @submit.prevent="handleSubmit">
+        <form class="mt-8 grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2" @submit.prevent="handleSubmit">
           <div>
             <label for="mission-client" class="mb-1 block text-sm font-bold text-[#0d3b56]">Client</label>
             <input
@@ -248,7 +248,7 @@ async function handleSubmit() {
 
           <div class="col-span-2">
             <h3 class="mb-3 text-sm font-bold text-[#0d3b56]">Balances (facultatif)</h3>
-            <div class="grid grid-cols-2 gap-x-10 gap-y-6">
+            <div class="grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2">
               <div>
                 <label for="mission-balance-n" class="mb-1 block text-sm font-bold text-[#0d3b56]">Balance N</label>
                 <input

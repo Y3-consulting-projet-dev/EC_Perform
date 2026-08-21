@@ -135,7 +135,7 @@ const infoRows = [
         </div>
 
         <div v-if="activeTab === 'informations'" class="mt-6 space-y-6">
-          <div v-for="(row, index) in infoRows" :key="index" class="grid grid-cols-3 gap-6">
+          <div v-for="(row, index) in infoRows" :key="index" class="grid grid-cols-1 gap-6 sm:grid-cols-3">
             <div v-for="field in row" :key="field.key">
               <p class="text-sm font-bold text-[#0d3b56]">{{ field.label }}</p>
               <p class="mt-1 text-sm text-gray-600">{{ client[field.key] || '-' }}</p>

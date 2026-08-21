@@ -65,13 +65,13 @@ function openClientDetail(client) {
 
 <template>
   <div class="space-y-6">
-    <div class="flex items-start justify-between">
+    <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <h1 class="text-lg font-bold text-[#0d3b56]">Liste des clients</h1>
         <p class="text-xs text-gray-400">Clients en base de données</p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-3">
         <button
           type="button"
           class="rounded-lg bg-[#0d3b56] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
@@ -97,7 +97,8 @@ function openClientDetail(client) {
     <div class="rounded-lg bg-white p-6 shadow-sm">
       <p v-if="error" class="mb-4 text-sm text-red-600">{{ error }}</p>
       <p v-if="loading" class="py-6 text-center text-sm text-gray-400">Chargement des clients...</p>
-      <table v-else class="w-full text-left text-sm">
+      <div v-else class="overflow-x-auto">
+      <table class="w-full min-w-[640px] text-left text-sm">
         <thead>
           <tr class="text-sm text-[#0d3b56]">
             <th class="pb-3 font-bold">Entreprise</th>
@@ -128,6 +129,7 @@ function openClientDetail(client) {
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
 
     <NewClientModal v-model="showNewClientModal" @created="handleClientCreated" />
