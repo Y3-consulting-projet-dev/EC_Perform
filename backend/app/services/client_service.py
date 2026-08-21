@@ -24,7 +24,7 @@ def serialize_client(doc):
         name = (doc.get("responsable_name") or "").strip()
         function = (doc.get("responsable_function") or "").strip()
         who = " ".join(p for p in [civility, name] if p)
-        contact_principal = f"{who} — {function}" if who and function else who or function
+        contact_principal = f"{who} - {function}" if who and function else who or function
 
     return {
         "id": str(doc["_id"]),

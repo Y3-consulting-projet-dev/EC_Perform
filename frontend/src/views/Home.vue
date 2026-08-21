@@ -65,7 +65,7 @@ function missionsDelta() {
 
 const stats = computed(() => [
   {
-    value: clientStats.value.total === null ? '—' : String(clientStats.value.total),
+    value: clientStats.value.total === null ? '-' : String(clientStats.value.total),
     label: 'Clients enregistrés',
     delta:
       clientStats.value.newLastThreeMonths === null
@@ -73,12 +73,12 @@ const stats = computed(() => [
         : `▲ +${clientStats.value.newLastThreeMonths} ce trimestre`,
   },
   {
-    value: missionStats.value.enCours === null ? '—' : String(missionStats.value.enCours),
+    value: missionStats.value.enCours === null ? '-' : String(missionStats.value.enCours),
     label: 'Missions en cours',
     delta: missionsDelta(),
   },
   {
-    value: missionStats.value.terminees === null ? '—' : String(missionStats.value.terminees),
+    value: missionStats.value.terminees === null ? '-' : String(missionStats.value.terminees),
     label: `Missions terminées (${missionStats.value.annee})`,
     delta:
       missionStats.value.pourcentageDansLesDelais === null

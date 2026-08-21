@@ -149,7 +149,7 @@ def _plage_label(cycle):
 
     extra_prefixes = [p for p in cycle["prefixes"] if p[:1] not in classes]
     parts = class_labels + extra_prefixes + list(cycle["subPrefixes"])
-    label = ", ".join(parts) if parts else "—"
+    label = ", ".join(parts) if parts else "-"
 
     if cycle["excludePrefixes"]:
         label += f" (hors {', '.join(cycle['excludePrefixes'])})"

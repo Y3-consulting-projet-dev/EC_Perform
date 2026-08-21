@@ -17,10 +17,10 @@ const sensStyles = {
   baisse: 'text-red-600',
   stable: 'text-gray-500',
 }
-const sensIcon = { hausse: '▲', baisse: '▼', stable: '—' }
+const sensIcon = { hausse: '▲', baisse: '▼', stable: '-' }
 
 function formatVariation(lead) {
-  if (lead.variationPct === null) return '—'
+  if (lead.variationPct === null) return '-'
   const sign = lead.variationPct > 0 ? '+' : ''
   return `${sign}${lead.variationPct.toFixed(1).replace('.', ',')} %`
 }
