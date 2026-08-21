@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import logo from '../assets/logo.y3.png'
+import logo from '../assets/logo2.y3.png'
 
 const router = useRouter()
 const route = useRoute()
@@ -27,29 +27,13 @@ const navItems = [
 </script>
 
 <template>
-  <div class="flex h-screen flex-col bg-[#eef2f6]">
-    <header class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-8 py-4">
-      <RouterLink to="/">
-        <img :src="logo" alt="Y3 Audit & Conseils" class="h-16 w-auto" />
-      </RouterLink>
+  <div class="flex h-screen bg-[#eef2f6]">
+    <aside class="flex w-60 shrink-0 flex-col justify-between overflow-y-auto bg-[#0d3b56] px-4 py-6">
+      <div>
+        <RouterLink to="/" class="-mt-4 mb-6 flex justify-start">
+          <img :src="logo" alt="Y3 Audit & Conseils" class="h-auto w-1/2" />
+        </RouterLink>
 
-      <RouterLink to="/profil" class="flex items-center gap-3">
-        <span
-          class="flex h-10 w-10 items-center justify-center rounded-full bg-[#2f6fb0] text-sm font-semibold text-white"
-        >
-          {{ initials }}
-        </span>
-        <span class="text-left">
-          <span class="block text-sm font-bold text-[#0d3b56]"
-            >{{ employee.prenoms }} {{ employee.nom }}</span
-          >
-          <span class="block text-xs text-gray-400">{{ employee.grade }}</span>
-        </span>
-      </RouterLink>
-    </header>
-
-    <div class="flex min-h-0 flex-1">
-      <aside class="flex w-60 shrink-0 flex-col justify-between overflow-y-auto bg-[#0d3b56] px-4 py-6">
         <nav class="space-y-2">
           <RouterLink
             v-for="item in navItems"
@@ -65,20 +49,38 @@ const navItems = [
             {{ item.label }}
           </RouterLink>
         </nav>
+      </div>
 
-        <button
-          type="button"
-          class="flex items-center gap-2 rounded-lg px-4 py-3 text-left text-sm font-semibold text-white transition hover:bg-white/10"
-          @click="logout"
-        >
-          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16 17l5-5-5-5" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12H9" />
-          </svg>
-          Se déconnecter
-        </button>
-      </aside>
+      <button
+        type="button"
+        class="flex items-center gap-2 rounded-lg px-4 py-3 text-left text-sm font-semibold text-white transition hover:bg-white/10"
+        @click="logout"
+      >
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16 17l5-5-5-5" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 12H9" />
+        </svg>
+        Se déconnecter
+      </button>
+    </aside>
+
+    <div class="flex min-h-0 flex-1 flex-col">
+      <header class="flex shrink-0 items-center justify-end border-b border-gray-200 bg-white px-8 py-4">
+        <RouterLink to="/profil" class="flex items-center gap-3">
+          <span
+            class="flex h-10 w-10 items-center justify-center rounded-full bg-[#2f6fb0] text-sm font-semibold text-white"
+          >
+            {{ initials }}
+          </span>
+          <span class="text-left">
+            <span class="block text-sm font-bold text-[#0d3b56]"
+              >{{ employee.prenoms }} {{ employee.nom }}</span
+            >
+            <span class="block text-xs text-gray-400">{{ employee.grade }}</span>
+          </span>
+        </RouterLink>
+      </header>
 
       <main class="flex-1 overflow-y-auto p-6">
         <RouterView />

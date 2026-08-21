@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import logo from '../assets/logo.y3.png'
+import logo from '../assets/logo2.y3.png'
 import ControleCoherence from './mission-steps/ControleCoherence.vue'
 import ControleIntangibilite from './mission-steps/ControleIntangibilite.vue'
 import DecoupageCycles from './mission-steps/DecoupageCycles.vue'
@@ -145,41 +145,24 @@ function goProfile() {
 </script>
 
 <template>
-  <div v-if="modelValue && client && mission" class="fixed inset-0 z-50 flex flex-col bg-[#eef2f6]">
-    <header class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-8 py-4">
-      <button type="button" @click="goHome">
-        <img :src="logo" alt="Y3 Audit & Conseils" class="h-16 w-auto" />
+  <div v-if="modelValue && client && mission" class="fixed inset-0 z-50 flex bg-[#eef2f6]">
+    <aside class="flex w-64 shrink-0 flex-col gap-6 overflow-y-auto bg-[#0d3b56] px-4 py-6">
+      <button type="button" class="-mt-4 flex justify-start" @click="goHome">
+        <img :src="logo" alt="Y3 Audit & Conseils" class="h-auto w-1/2" />
       </button>
 
-      <button type="button" class="flex items-center gap-3" @click="goProfile">
-        <span
-          class="flex h-10 w-10 items-center justify-center rounded-full bg-[#2f6fb0] text-sm font-semibold text-white"
-        >
-          {{ initials }}
-        </span>
-        <span class="text-left">
-          <span class="block text-sm font-bold text-[#0d3b56]"
-            >{{ employee.prenoms }} {{ employee.nom }}</span
-          >
-          <span class="block text-xs text-gray-400">{{ employee.grade }}</span>
-        </span>
+      <button
+        type="button"
+        class="flex w-fit items-center gap-2 rounded-lg bg-white/90 px-4 py-2 text-sm font-semibold text-[#0d3b56] transition hover:bg-white"
+        @click="close"
+      >
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
+        </svg>
+        Retour
       </button>
-    </header>
 
-    <div class="flex min-h-0 flex-1">
-      <aside class="flex w-64 shrink-0 flex-col gap-6 overflow-y-auto bg-[#0d3b56] px-4 py-6">
-        <button
-          type="button"
-          class="flex w-fit items-center gap-2 rounded-lg bg-white/90 px-4 py-2 text-sm font-semibold text-[#0d3b56] transition hover:bg-white"
-          @click="close"
-        >
-          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-          Retour
-        </button>
-
-        <div
+      <div
           v-for="group in phaseGroups"
           :key="group.title"
           class="space-y-2 rounded-xl border border-white/15 p-3"
@@ -218,7 +201,24 @@ function goProfile() {
         </div>
       </aside>
 
-      <main class="scrollbar-hide flex-1 overflow-y-auto p-8">
+      <div class="flex min-h-0 flex-1 flex-col">
+        <header class="flex shrink-0 items-center justify-end border-b border-gray-200 bg-white px-8 py-4">
+          <button type="button" class="flex items-center gap-3" @click="goProfile">
+            <span
+              class="flex h-10 w-10 items-center justify-center rounded-full bg-[#2f6fb0] text-sm font-semibold text-white"
+            >
+              {{ initials }}
+            </span>
+            <span class="text-left">
+              <span class="block text-sm font-bold text-[#0d3b56]"
+                >{{ employee.prenoms }} {{ employee.nom }}</span
+              >
+              <span class="block text-xs text-gray-400">{{ employee.grade }}</span>
+            </span>
+          </button>
+        </header>
+
+        <main class="scrollbar-hide flex-1 overflow-y-auto p-8">
         <p class="text-sm font-semibold text-gray-500">
           Mission {{ client.raisonSociale }} · Exercice {{ mission.exercice }}
         </p>
@@ -226,9 +226,9 @@ function goProfile() {
         <KeepAlive>
           <component :is="activeStepComponent" :key="activeStepId" :mission="mission" :client="client" />
         </KeepAlive>
-      </main>
+        </main>
+      </div>
     </div>
-  </div>
 </template>
 
 <style scoped>
