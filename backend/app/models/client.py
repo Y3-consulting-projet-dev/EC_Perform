@@ -14,3 +14,7 @@ class ClientCreateRequest(BaseModel):
     contactPrincipal: str = ""
     email: str = ""
     telephone: str = ""
+
+
+class ClientUpdateRequest(ClientCreateRequest):
+    pass

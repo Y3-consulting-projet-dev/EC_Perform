@@ -1,11 +1,14 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import NewMissionModal from './NewMissionModal.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
+  client: { type: Object, default: null },
 })
-const emit = defineEmits(['update:modelValue', 'created'])
+const emit = defineEmits(['update:modelValue', 'created', 'updated'])
+
+const isEditing = computed(() => !!props.client)
 
 const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -40,6 +43,15 @@ const saving = ref(false)
 const error = ref('')
 const formRef = ref(null)
 
+watch(
+  () => props.modelValue,
+  (open) => {
+    if (!open) return
+    error.value = ''
+    Object.assign(form, isEditing.value ? { ...emptyForm(), ...props.client } : emptyForm())
+  },
+)
+
 function close() {
   error.value = ''
   emit('update:modelValue', false)
@@ -70,8 +82,32 @@ async function createClient() {
   }
 }
 
+async function updateClient() {
+  error.value = ''
+  saving.value = true
+  try {
+    const response = await fetch(`${apiUrl}/clients/${props.client.id}`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ ...form }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      error.value = data.detail ?? 'Une erreur est survenue.'
+      return null
+    }
+    emit('updated', data)
+    return data
+  } catch {
+    error.value = 'Impossible de contacter le serveur.'
+    return null
+  } finally {
+    saving.value = false
+  }
+}
+
 async function handleSubmit() {
-  const client = await createClient()
+  const client = isEditing.value ? await updateClient() : await createClient()
   if (client) close()
 }
 
@@ -98,9 +134,10 @@ async function handleCreateAndAddMission() {
     <div class="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-xl">
     <div class="scrollbar-hide max-h-[90vh] overflow-y-auto p-8">
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-[#0d3b56]">Nouveau client</h2>
+        <h2 class="text-lg font-bold text-[#0d3b56]">{{ isEditing ? 'Modifier le client' : 'Nouveau client' }}</h2>
         <div class="flex items-center gap-5">
           <button
+            v-if="!isEditing"
             type="button"
             class="rounded-full bg-[#0d3b56] px-6 py-2 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
             @click="handleCreateAndAddMission"
