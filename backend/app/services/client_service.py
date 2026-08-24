@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
 
 from bson import ObjectId
+from bson.errors import InvalidId
+from fastapi import HTTPException
 
 from app.db.session import db
 from app.services.mission_service import serialize_mission
@@ -73,3 +75,21 @@ def create_client(payload_dict):
     result = db.clients.insert_one(doc)
     created = db.clients.find_one({"_id": result.inserted_id})
     return serialize_client(created)
+
+
+def update_client(client_id, payload_dict):
+    try:
+        object_id = ObjectId(client_id)
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Client invalide")
+    if db.clients.find_one({"_id": object_id}) is None:
+        raise HTTPException(status_code=404, detail="Client introuvable")
+
+    db.clients.update_one({"_id": object_id}, {"$set": dict(payload_dict)})
+    updated = db.clients.find_one({"_id": object_id})
+
+    missions_by_client = [serialize_mission(m) for m in db.missions.find({"clientId": client_id})]
+    result = serialize_client(updated)
+    result["missions"] = missions_by_client
+    result["missionsEnCours"] = sum(1 for m in missions_by_client if m["statut"] == "En cours")
+    return result

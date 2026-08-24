@@ -175,7 +175,8 @@ function openMissionProcess(mission) {
     </div>
 
     <div class="overflow-hidden rounded-lg bg-white shadow-sm">
-      <table class="w-full text-left text-sm">
+      <div class="overflow-x-auto">
+      <table class="w-full min-w-[720px] text-left text-sm">
         <thead>
           <tr class="bg-gray-50 text-sm font-bold text-[#0d3b56]">
             <th class="px-6 py-4">Client</th>
@@ -227,8 +228,9 @@ function openMissionProcess(mission) {
           </template>
         </tbody>
       </table>
+      </div>
 
-      <div class="flex items-center justify-between border-t border-gray-100 px-6 py-4 print:hidden">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-6 py-4 print:hidden">
         <p class="text-sm text-gray-400">Page 1 / 1 - {{ filteredMissions.length }} missions</p>
         <div class="flex gap-3">
           <button

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import MissionWorkspaceModal from './MissionWorkspaceModal.vue'
+import NewClientModal from './NewClientModal.vue'
 import NewMissionModal from './NewMissionModal.vue'
 import { canManage } from '../utils/permissions'
 
@@ -13,7 +14,13 @@ const emit = defineEmits(['update:modelValue'])
 const activeTab = ref('informations')
 const showNewMissionModal = ref(false)
 const showMissionWorkspace = ref(false)
+const showEditClientModal = ref(false)
 const selectedMission = ref(null)
+
+function handleClientUpdated(updated) {
+  if (!props.client) return
+  Object.assign(props.client, updated)
+}
 
 function openMission(mission) {
   selectedMission.value = mission
@@ -96,6 +103,7 @@ const infoRows = [
           <button
             type="button"
             class="rounded-full border border-gray-300 px-5 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+            @click="showEditClientModal = true"
           >
             Modifier
           </button>
@@ -137,7 +145,7 @@ const infoRows = [
         </div>
 
         <div v-if="activeTab === 'informations'" class="mt-6 space-y-6">
-          <div v-for="(row, index) in infoRows" :key="index" class="grid grid-cols-3 gap-6">
+          <div v-for="(row, index) in infoRows" :key="index" class="grid grid-cols-1 gap-6 sm:grid-cols-3">
             <div v-for="field in row" :key="field.key">
               <p class="text-sm font-bold text-[#0d3b56]">{{ field.label }}</p>
               <p class="mt-1 text-sm text-gray-600">{{ client[field.key] || '-' }}</p>
@@ -194,6 +202,7 @@ const infoRows = [
 
     <NewMissionModal v-model="showNewMissionModal" :client="client" @created="handleMissionCreated" />
     <MissionWorkspaceModal v-model="showMissionWorkspace" :client="client" :mission="selectedMission" />
+    <NewClientModal v-model="showEditClientModal" :client="client" @updated="handleClientUpdated" />
   </div>
 </template>
 

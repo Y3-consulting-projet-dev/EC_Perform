@@ -127,8 +127,8 @@ async function handleChangePassword() {
     <main class="flex-1 overflow-y-auto px-10 py-8">
       <h1 class="mb-8 text-3xl font-extrabold text-[#0d3b56]">MON PROFIL</h1>
 
-      <div class="flex items-start gap-8">
-        <div class="w-72 shrink-0">
+      <div class="flex flex-col items-start gap-8 lg:flex-row">
+        <div class="w-full shrink-0 lg:w-72">
           <div class="flex items-start gap-3">
             <span
               class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#0d3b56] text-lg font-semibold text-white"
@@ -193,7 +193,7 @@ async function handleChangePassword() {
             <h2 class="text-2xl font-bold text-[#0d3b56]">Informations personnelles</h2>
             <p class="mt-1 text-sm text-gray-500">Profil de votre compte sur l'outil d'évaluation.</p>
 
-            <form class="mt-8 grid grid-cols-2 gap-6" @submit.prevent="handleSaveProfile">
+            <form class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2" @submit.prevent="handleSaveProfile">
               <div>
                 <label for="prenoms" class="mb-1 block text-sm text-gray-700">Prénoms</label>
                 <input
