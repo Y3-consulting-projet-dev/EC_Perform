@@ -5,6 +5,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import HTTPException
 
+from app.core.permissions import is_management_grade
 from app.db.session import db
 
 DEFAULT_DOCUMENT_CATEGORIES = [
@@ -205,6 +206,11 @@ def get_phases():
 
 
 def create_mission(payload_dict, employee):
+    if not is_management_grade(employee):
+        raise HTTPException(
+            status_code=403,
+            detail="Seuls les grades senior et au-dessus peuvent créer une mission.",
+        )
     try:
         client_object_id = ObjectId(payload_dict["clientId"])
     except InvalidId:

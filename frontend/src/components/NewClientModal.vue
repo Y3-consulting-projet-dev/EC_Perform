@@ -1,6 +1,7 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import NewMissionModal from './NewMissionModal.vue'
+import { canManage } from '../utils/permissions'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -101,6 +102,7 @@ async function handleCreateAndAddMission() {
         <h2 class="text-lg font-bold text-[#0d3b56]">Nouveau client</h2>
         <div class="flex items-center gap-5">
           <button
+            v-if="canManage()"
             type="button"
             class="rounded-full bg-[#0d3b56] px-6 py-2 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
             @click="handleCreateAndAddMission"
