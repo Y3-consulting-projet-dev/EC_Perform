@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { API_URL as apiUrl } from '../utils/apiUrl'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -7,7 +8,6 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue', 'created'])
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 function authHeaders() {
   return {

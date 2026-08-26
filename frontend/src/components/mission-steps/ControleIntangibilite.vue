@@ -1,11 +1,11 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { API_URL as apiUrl } from '../../utils/apiUrl'
 
 const props = defineProps({
   mission: { type: Object, required: true },
 })
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('access_token')}` }

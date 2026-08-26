@@ -1,9 +1,9 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import ClientDetailModal from '../components/ClientDetailModal.vue'
+import { API_URL as apiUrl } from '../utils/apiUrl'
 import NewClientModal from '../components/NewClientModal.vue'
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 function authHeaders() {
   return {

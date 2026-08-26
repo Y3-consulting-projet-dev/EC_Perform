@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { API_URL as apiUrl } from '../utils/apiUrl'
 
 const router = useRouter()
 
@@ -10,7 +11,6 @@ const loading = ref(false)
 const error = ref('')
 const showPassword = ref(false)
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 async function handleSubmit() {
   error.value = ''

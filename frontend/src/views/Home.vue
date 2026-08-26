@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { API_URL as apiUrl } from '../utils/apiUrl'
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 function authHeaders() {
   return {

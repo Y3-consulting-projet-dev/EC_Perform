@@ -7,4 +7,7 @@ export default defineConfig({
     vue(),
     tailwindcss(),
   ],
+  server: {
+    host: true,
+  },
 })

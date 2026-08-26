@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { API_URL as apiUrl } from '../utils/apiUrl'
 import logo from '../assets/logo2.y3.png'
 import ControleCoherence from './mission-steps/ControleCoherence.vue'
 import ControleIntangibilite from './mission-steps/ControleIntangibilite.vue'
@@ -17,7 +18,6 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue'])
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 function authHeaders() {
   return {

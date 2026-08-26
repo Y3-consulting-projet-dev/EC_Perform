@@ -1,12 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { canManage as canManageGrade } from '../../utils/permissions'
+import { API_URL as apiUrl } from '../../utils/apiUrl'
 
 const props = defineProps({
   mission: { type: Object, required: true },
 })
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 function authHeaders() {
   return {

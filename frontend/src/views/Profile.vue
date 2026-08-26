@@ -1,10 +1,10 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import logo from '../assets/logo2.y3.png'
+import { API_URL as apiUrl } from '../utils/apiUrl'
+import logo from '../assets/logo.y3.png'
 
 const router = useRouter()
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 const employee = reactive(JSON.parse(localStorage.getItem('employee') ?? '{}'))
 
@@ -106,7 +106,7 @@ async function handleChangePassword() {
   <div class="flex h-screen flex-col bg-[#eef2f6]">
     <header class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-8 py-4">
       <RouterLink to="/">
-        <img :src="logo" alt="Y3 Audit & Conseils" class="h-16 w-auto" />
+        <img :src="logo" alt="Y3 Audit & Conseils" class="h-10 w-auto" />
       </RouterLink>
 
       <div class="flex items-center gap-3">
@@ -128,7 +128,7 @@ async function handleChangePassword() {
       <h1 class="mb-8 text-3xl font-extrabold text-[#0d3b56]">MON PROFIL</h1>
 
       <div class="flex flex-col items-start gap-8 lg:flex-row">
-        <div class="w-full shrink-0 lg:w-72">
+        <div class="w-full shrink-0 lg:w-60">
           <div class="flex items-start gap-3">
             <span
               class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#0d3b56] text-lg font-semibold text-white"
