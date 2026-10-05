@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import MissionWorkspaceModal from './MissionWorkspaceModal.vue'
 import NewClientModal from './NewClientModal.vue'
 import NewMissionModal from './NewMissionModal.vue'
+import { canManage } from '../utils/permissions'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -107,6 +108,7 @@ const infoRows = [
             Modifier
           </button>
           <button
+            v-if="canManage()"
             type="button"
             class="rounded-full bg-[#0d3b56] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
             @click="showNewMissionModal = true"

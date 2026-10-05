@@ -2,6 +2,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import HTTPException
 
+from app.core.permissions import is_management_grade
 from app.db.session import db
 from app.services.cycle_service import CYCLES
 from app.services.mission_service import get_mission_or_404, parse_date
@@ -12,21 +13,9 @@ DEFAULT_RISQUE = "Moyen"
 CYCLE_CODES = {cycle["code"] for cycle in CYCLES}
 CYCLE_LIBELLES = {cycle["code"]: cycle["libelle"] for cycle in CYCLES}
 
-# Grades autorisés à créer l'équipe et à affecter/évaluer les cycles (risque, collaborateur
-# assigné, délai). Les autres grades (ex. Assistant) sont en lecture seule sur cette page.
-CYCLE_MANAGEMENT_GRADES = {
-    "senior",
-    "assistant manager",
-    "manager",
-    "senior manager",
-    "associé",
-    "associe",
-}
-
 
 def peut_gerer_repartition(employee):
-    grade = (employee.get("grade") or "").strip().lower()
-    return grade in CYCLE_MANAGEMENT_GRADES
+    return is_management_grade(employee)
 
 
 def _verifier_droit_gestion(employee):

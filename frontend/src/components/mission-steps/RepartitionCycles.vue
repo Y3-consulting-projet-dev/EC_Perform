@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { canManage as canManageGrade } from '../../utils/permissions'
 
 const props = defineProps({
   mission: { type: Object, required: true },
@@ -14,13 +15,7 @@ function authHeaders() {
   }
 }
 
-// Seuls ces grades peuvent créer l'équipe et affecter les cycles (risque, collaborateur,
-// délai) ; les autres grades (ex. Assistant) sont en lecture seule sur cette page. Doit
-// rester cohérent avec CYCLE_MANAGEMENT_GRADES côté backend (repartition_service.py).
-const CYCLE_MANAGEMENT_GRADES = ['senior', 'assistant manager', 'manager', 'senior manager', 'associé', 'associe']
-
-const currentEmployee = JSON.parse(localStorage.getItem('employee') ?? '{}')
-const canManage = computed(() => CYCLE_MANAGEMENT_GRADES.includes((currentEmployee.grade ?? '').trim().toLowerCase()))
+const canManage = computed(() => canManageGrade())
 
 const risqueOptions = ['Élevé', 'Moyen', 'Faible']
 const risqueStyles = {
