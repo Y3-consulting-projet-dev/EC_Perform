@@ -1,6 +1,8 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
 import FeuilleMaitresseModal from './FeuilleMaitresseModal.vue'
+
+const revisionNav = inject('revisionNav')
 
 const props = defineProps({
   mission: { type: Object, required: true },
@@ -152,13 +154,22 @@ function openFeuilleMaitresse(lead) {
             <span v-if="lead.sens !== 'stable'">à expliquer</span>
           </p>
 
-          <button
-            type="button"
-            class="mx-auto mt-3 block rounded-lg bg-[#0d3b56] px-6 py-2 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
-            @click="openFeuilleMaitresse(lead)"
-          >
-            Ouvrir
-          </button>
+          <div class="mt-3 flex justify-center gap-2">
+            <button
+              type="button"
+              class="rounded-lg bg-[#0d3b56] px-6 py-2 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
+              @click="openFeuilleMaitresse(lead)"
+            >
+              Ouvrir
+            </button>
+            <button
+              type="button"
+              class="rounded-lg border border-gray-200 bg-white px-6 py-2 text-sm font-semibold text-[#0d3b56] transition hover:bg-gray-50"
+              @click="revisionNav.goToStep('prise-connaissance', lead.code)"
+            >
+              Réviser →
+            </button>
+          </div>
         </div>
       </div>
     </template>

@@ -1,14 +1,22 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, provide, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import logo from '../assets/logo2.y3.png'
+import { resetRevisionCache } from '../composables/useCycleRevision'
+import ConclusionCycle from './mission-steps/ConclusionCycle.vue'
+import ConstatsRisques from './mission-steps/ConstatsRisques.vue'
 import ControleCoherence from './mission-steps/ControleCoherence.vue'
 import ControleIntangibilite from './mission-steps/ControleIntangibilite.vue'
+import ControlesDetailles from './mission-steps/ControlesDetailles.vue'
 import DecoupageCycles from './mission-steps/DecoupageCycles.vue'
 import EnDeveloppement from './mission-steps/EnDeveloppement.vue'
 import GenerationLeads from './mission-steps/GenerationLeads.vue'
+import JustificationSolde from './mission-steps/JustificationSolde.vue'
+import LeadCycle from './mission-steps/LeadCycle.vue'
 import OuvertureCollecte from './mission-steps/OuvertureCollecte.vue'
+import PriseConnaissance from './mission-steps/PriseConnaissance.vue'
 import RepartitionCycles from './mission-steps/RepartitionCycles.vue'
+import RevueNiveau from './mission-steps/RevueNiveau.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -93,7 +101,11 @@ const phaseGroups = [
   },
   {
     title: 'Phase 5 – Revue',
-    steps: [{ id: 'revue-multi-niveaux', label: 'Revue multi-niveaux' }],
+    steps: [
+      { id: 'revue-senior', label: 'Revue Senior' },
+      { id: 'revue-manager', label: 'Revue Manager' },
+      { id: 'revue-associe', label: 'Revue Associé' },
+    ],
   },
   {
     title: 'Phase 6 – Restitution client',
@@ -115,15 +127,47 @@ const stepComponents = {
   'decoupage-cycles': DecoupageCycles,
   'repartition-cycles': RepartitionCycles,
   'generation-leads': GenerationLeads,
+  'prise-connaissance': PriseConnaissance,
+  'lead-cycle': LeadCycle,
+  'justification-solde': JustificationSolde,
+  'controle-detaille': ControlesDetailles,
+  'constats-risques': ConstatsRisques,
+  'conclusion-cycle': ConclusionCycle,
+  'revue-senior': RevueNiveau,
+  'revue-manager': RevueNiveau,
+  'revue-associe': RevueNiveau,
+}
+
+const stepProps = {
+  'revue-senior': { niveau: 'senior' },
+  'revue-manager': { niveau: 'manager' },
+  'revue-associe': { niveau: 'associe' },
 }
 
 const activeStepId = ref(phaseGroups[0].steps[0].id)
 const activeStepComponent = computed(() => stepComponents[activeStepId.value] ?? EnDeveloppement)
 
+// Phases 4 et 5 : cycle en cours de révision/revue, partagé par tous les écrans du cycle.
+const selectedCycle = ref(null)
+const mainEl = ref(null)
+
+function goToStep(stepId, cycleCode) {
+  if (cycleCode) selectedCycle.value = cycleCode
+  activeStepId.value = stepId
+  mainEl.value?.scrollTo({ top: 0 })
+}
+
+provide('revisionNav', { selectedCycle, activeStepId, goToStep })
+
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) activeStepId.value = phaseGroups[0].steps[0].id
+    if (open) {
+      activeStepId.value = phaseGroups[0].steps[0].id
+      selectedCycle.value = null
+      // Repartir de l'état serveur : un collègue a pu valider, renvoyer ou modifier un cycle.
+      resetRevisionCache()
+    }
   },
 )
 
@@ -218,13 +262,19 @@ function goProfile() {
           </button>
         </header>
 
-        <main class="scrollbar-hide flex-1 overflow-y-auto p-8">
+        <main ref="mainEl" class="scrollbar-hide flex-1 overflow-y-auto p-8">
         <p class="text-sm font-semibold text-gray-500">
           Mission {{ client.raisonSociale }} · Exercice {{ mission.exercice }}
         </p>
 
         <KeepAlive>
-          <component :is="activeStepComponent" :key="activeStepId" :mission="mission" :client="client" />
+          <component
+            :is="activeStepComponent"
+            :key="activeStepId"
+            :mission="mission"
+            :client="client"
+            v-bind="stepProps[activeStepId]"
+          />
         </KeepAlive>
         </main>
       </div>

@@ -20,6 +20,26 @@ os.makedirs(UPLOADS_DIR, exist_ok=True)
 INLINE_MIME_TYPES = {"application/pdf"}
 
 
+def store_upload(mission_id: str, filename: str, content: bytes):
+    """Enregistre un fichier sous uploads/{mission_id}/ et retourne (nom d'origine, URL servie)."""
+    mission_dir = os.path.join(UPLOADS_DIR, mission_id)
+    os.makedirs(mission_dir, exist_ok=True)
+    safe_name = os.path.basename(filename)
+    stored_name = f"{uuid.uuid4().hex}_{safe_name}"
+    with open(os.path.join(mission_dir, stored_name), "wb") as f:
+        f.write(content)
+    return safe_name, f"/uploads/{mission_id}/{stored_name}"
+
+
+def upload_file_path(file_url: str):
+    """Chemin disque d'un fichier servi sous /uploads/..., ou None s'il sort du dossier."""
+    relative = file_url.removeprefix("/uploads/")
+    file_path = os.path.abspath(os.path.join(UPLOADS_DIR, relative))
+    if not file_path.startswith(UPLOADS_DIR + os.sep) or not os.path.isfile(file_path):
+        return None
+    return file_path
+
+
 def serialize_documents(mission_doc):
     documents = mission_doc.get("documents") or default_documents()
     categories = documents.get("categories", [])
@@ -89,14 +109,7 @@ def add_mission_document(
     file_name = None
     file_url = None
     if fichier is not None and fichier.filename:
-        mission_dir = os.path.join(UPLOADS_DIR, mission_id)
-        os.makedirs(mission_dir, exist_ok=True)
-        safe_name = os.path.basename(fichier.filename)
-        stored_name = f"{uuid.uuid4().hex}_{safe_name}"
-        with open(os.path.join(mission_dir, stored_name), "wb") as f:
-            f.write(fichier.file.read())
-        file_name = safe_name
-        file_url = f"/uploads/{mission_id}/{stored_name}"
+        file_name, file_url = store_upload(mission_id, fichier.filename, fichier.file.read())
 
     document = {
         "id": uuid.uuid4().hex,
