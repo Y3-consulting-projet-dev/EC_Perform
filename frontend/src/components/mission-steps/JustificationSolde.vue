@@ -58,31 +58,6 @@ async function deposerFichier(piece, event) {
     busy.value = ''
   }
 }
-
-// Le PT (4b / 4d) est exporté en .xlsx et référencé comme pièce probante, figé à sa version.
-async function rattacherPapier(r, etape) {
-  busy.value = etape
-  error.value = ''
-  try {
-    const base = `/missions/${props.mission.id}/cycles/${r.code}/papiers/${etape}`
-    const papier = await apiFetch(base)
-    const exported = await apiFetch(`${base}/export`, { method: 'POST' })
-    r.justification.pieces.push({
-      id: newId(),
-      libelle: `${papier.titre} (v${exported.version})`,
-      source: `Papier de travail ${etape}`,
-      statut: 'Reçue',
-      fileName: exported.fileName,
-      fileUrl: exported.fileUrl,
-      ptEtape: etape,
-    })
-    save()
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    busy.value = ''
-  }
-}
 </script>
 
 <template>
@@ -91,7 +66,7 @@ async function rattacherPapier(r, etape) {
     :summary="summary"
     etape="4c"
     title="Justification du solde"
-    subtitle="Rassembler les pièces probantes et couvrir les assertions d'audit."
+    subtitle="Rassembler les pièces probantes qui justifient le solde."
   >
     <template #default="{ revision: r }">
       <div v-if="aCompleter && constatsOuverts.length" class="rounded-xl border border-[#f1d9b5] bg-[#fdf6ec] p-4">
@@ -109,41 +84,10 @@ async function rattacherPapier(r, etape) {
         </button>
       </div>
 
-      <div class="rounded-xl bg-white p-5 shadow-sm">
-        <h3 class="text-sm font-bold text-[#0d3b56]">Assertions d'audit à couvrir</h3>
-        <ul class="mt-2 divide-y divide-gray-100">
-          <li v-for="assertion in r.justification.assertions" :key="assertion.cle" class="flex items-center justify-between gap-3 py-2.5">
-            <label class="flex items-center text-[#1a2634] gap-2.5 text-[13px]">
-              <input
-                v-model="assertion.coche"
-                type="checkbox"
-                :disabled="!canEdit"
-                class="h-4 w-4 accent-[#2f9e6b]"
-                @change="save"
-              />
-              {{ assertion.libelle }}
-            </label>
-            <span v-if="assertion.le" class="text-[11px] text-gray-400">
-              {{ assertion.coche ? 'Couverte' : 'Décochée' }} le {{ formatDateTime(assertion.le) }} par {{ assertion.par?.nom }}
-            </span>
-          </li>
-        </ul>
-      </div>
-
       <div class="rounded-xl bg-white shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-2 px-5 pt-4">
           <h3 class="text-sm font-bold text-[#0d3b56]">Pièces probantes</h3>
           <div v-if="canEdit" class="flex flex-wrap gap-2">
-            <button
-              v-for="etape in ['4b', '4d']"
-              :key="etape"
-              type="button"
-              :disabled="!!busy"
-              class="rounded-md border border-[#c3dcbc] bg-white px-3 py-1.5 text-xs font-semibold text-[#1d6a3a] hover:bg-[#eef3ec] disabled:opacity-50"
-              @click="rattacherPapier(r, etape)"
-            >
-              {{ busy === etape ? 'Export…' : `+ Rattacher le PT ${etape}` }}
-            </button>
             <button
               type="button"
               class="rounded-md bg-[#0d3b56] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0a2f45]"

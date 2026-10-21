@@ -83,7 +83,7 @@ const phaseGroups = [
   {
     title: 'Phase 3 – Organisation',
     steps: [
-      { id: 'decoupage-cycles', label: 'Découpage en 12 cycles' },
+      { id: 'decoupage-cycles', label: 'Découpage en 13 cycles' },
       { id: 'repartition-cycles', label: 'Répartition des cycles' },
       { id: 'generation-leads', label: 'Génération des leads' },
     ],

@@ -15,3 +15,7 @@ class MissionCreateRequest(BaseModel):
 
 class MissionCloseRequest(BaseModel):
     dateFin: str | None = None
+
+
+class FicheSignaletiqueUpdate(BaseModel):
+    valeurs: dict[str, str]

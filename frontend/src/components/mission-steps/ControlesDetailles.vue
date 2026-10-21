@@ -1,6 +1,7 @@
 <script setup>
 import CycleRevisionLayout from '../revision/CycleRevisionLayout.vue'
 import PapierTravailBloc from '../revision/PapierTravailBloc.vue'
+import { formatDateTime } from '../../composables/useCycleRevision'
 import { useRevisionStep } from '../../composables/useRevisionStep'
 
 const props = defineProps({
@@ -8,6 +9,11 @@ const props = defineProps({
 })
 
 const { nav, summary, entry, canEdit } = useRevisionStep(props)
+
+// Les assertions restent stockées dans la section « justification » du cycle.
+function saveAssertions() {
+  entry.value.scheduleSave('justification')
+}
 
 const sousSections = [
   ['Balance âgée', 'Tranches 0-30 / 31-60 / 61-90 / > 90 jours, avec la part de chaque tranche dans le solde.'],
@@ -37,6 +43,27 @@ const sousSections = [
       </p>
 
       <PapierTravailBloc :mission-id="mission.id" :code="revision.code" etape="4d" :can-edit="canEdit" />
+
+      <div class="rounded-xl bg-white p-5 shadow-sm">
+        <h3 class="text-sm font-bold text-[#0d3b56]">Assertions d'audit couvertes par le papier de travail</h3>
+        <ul class="mt-2 divide-y divide-gray-100">
+          <li v-for="assertion in revision.justification.assertions" :key="assertion.cle" class="flex items-center justify-between gap-3 py-2.5">
+            <label class="flex items-center text-[#1a2634] gap-2.5 text-[13px]">
+              <input
+                v-model="assertion.coche"
+                type="checkbox"
+                :disabled="!canEdit"
+                class="h-4 w-4 accent-[#2f9e6b]"
+                @change="saveAssertions"
+              />
+              {{ assertion.libelle }}
+            </label>
+            <span v-if="assertion.le" class="text-[11px] text-gray-400">
+              {{ assertion.coche ? 'Couverte' : 'Décochée' }} le {{ formatDateTime(assertion.le) }} par {{ assertion.par?.nom }}
+            </span>
+          </li>
+        </ul>
+      </div>
 
       <div class="flex justify-end">
         <button

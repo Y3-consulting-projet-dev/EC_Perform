@@ -14,6 +14,7 @@ from app.routers import (
     cycles,
     documents,
     employees,
+    fiche_signaletique,
     missions,
     review,
     revision,
@@ -49,6 +50,7 @@ app.include_router(employees.router)
 app.include_router(clients.router)
 app.include_router(missions.router)
 app.include_router(documents.router)
+app.include_router(fiche_signaletique.router)
 app.include_router(balances.router)
 app.include_router(cycles.router)
 app.include_router(revision.router)

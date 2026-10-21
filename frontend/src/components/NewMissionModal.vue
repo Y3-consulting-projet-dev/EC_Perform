@@ -34,8 +34,9 @@ function fullName(e) {
   return `${e.prenoms} ${e.nom}`.trim()
 }
 
-const MANAGER_GRADES = ['manager']
-const SENIOR_GRADES = ['senior']
+// Même rangs que la revue multi-niveaux (GRADE_REVIEW_RANKS côté backend).
+const MANAGER_GRADES = ['manager', 'senior manager']
+const SENIOR_GRADES = ['senior', 'assistant manager']
 
 const EXPERTISE_COMPTABLE_DEPARTEMENTS = ['expertise comptable', 'audit & expertise comptable']
 

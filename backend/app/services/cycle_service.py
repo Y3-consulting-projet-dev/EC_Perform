@@ -20,7 +20,7 @@ from app.services.mission_service import get_mission_or_404
 CYCLES = [
     {
         "code": "A",
-        "libelle": "Trésorerie et financement",
+        "libelle": "Trésorerie",
         "classes": ["5"],
         "prefixes": ["50", "51", "52", "53", "54", "55", "56", "57", "58", "59"],
         "subPrefixes": {},
@@ -44,7 +44,7 @@ CYCLES = [
     },
     {
         "code": "D",
-        "libelle": "Stocks",
+        "libelle": "Stocks et encours",
         "classes": ["3"],
         "prefixes": ["31", "32", "34", "35", "36", "37", "38", "39"],
         "subPrefixes": {},
@@ -84,9 +84,9 @@ CYCLES = [
     },
     {
         "code": "I",
-        "libelle": "Emprunts et dettes financières",
+        "libelle": "Emprunts et financement",
         "classes": [],
-        "prefixes": ["16", "17", "18", "19"],
+        "prefixes": ["16", "17", "18"],
         "subPrefixes": {},
         "excludePrefixes": [],
     },
@@ -100,14 +100,22 @@ CYCLES = [
     },
     {
         "code": "K",
-        "libelle": "Produits et charges",
+        "libelle": "Autres produits et charges",
         "classes": ["6", "7", "8"],
-        "prefixes": ["60", "61", "62", "63", "64", "65", "66", "67", "68", "69", "70", "71", "72", "73", "74", "75", "76", "77", "78", "79"],
+        "prefixes": ["61", "62", "63", "65", "67", "68", "69", "71", "72", "73", "74", "75", "76", "77", "78", "79"],
         "subPrefixes": {},
         "excludePrefixes": [],
     },
     {
         "code": "L",
+        "libelle": "Provisions",
+        "classes": [],
+        "prefixes": ["19"],
+        "subPrefixes": {},
+        "excludePrefixes": [],
+    },
+    {
+        "code": "M",
         "libelle": "États financiers",
         "classes": [],
         "prefixes": [],

@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import CycleRevisionLayout from '../revision/CycleRevisionLayout.vue'
+import FicheSignaletique from './FicheSignaletique.vue'
 import { useRevisionStep } from '../../composables/useRevisionStep'
 
 const props = defineProps({
@@ -39,6 +40,8 @@ function supprimerRisque(revision, index) {
     subtitle="Comprendre le processus métier et les risques spécifiques du cycle avant de démarrer les travaux."
   >
     <template #default="{ revision }">
+      <FicheSignaletique :mission="mission" />
+
       <div class="rounded-xl bg-white p-5 shadow-sm">
         <h3 class="text-sm font-bold text-[#0d3b56]">Description du processus métier</h3>
         <textarea
