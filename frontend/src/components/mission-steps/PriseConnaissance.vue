@@ -99,7 +99,7 @@ function supprimerRisque(revision, index) {
           @input="save"
         ></textarea>
       </div>
-
+ 
       <div class="flex justify-end">
         <button
           type="button"
