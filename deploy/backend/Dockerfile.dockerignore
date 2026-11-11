@@ -1,0 +1,10 @@
+**
+!backend/requirements.txt
+!backend/app.py
+!backend/app/**
+!backend/init_db.py
+!backend/import_personnel.py
+!backend/generate_passwords.py
+**/__pycache__
+**/*.pyc
+**/.env
