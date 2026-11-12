@@ -1,7 +1,10 @@
 <script setup>
 import { ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import MissionWorkspaceModal from './MissionWorkspaceModal.vue'
+import NewClientModal from './NewClientModal.vue'
 import NewMissionModal from './NewMissionModal.vue'
+import { canManage } from '../utils/permissions'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -12,17 +15,35 @@ const emit = defineEmits(['update:modelValue'])
 const activeTab = ref('informations')
 const showNewMissionModal = ref(false)
 const showMissionWorkspace = ref(false)
+const showEditClientModal = ref(false)
 const selectedMission = ref(null)
 
+function handleClientUpdated(updated) {
+  if (!props.client) return
+  Object.assign(props.client, updated)
+}
+
 function openMission(mission) {
+  // Seuls les collaborateurs de la mission peuvent l'ouvrir (contrôle refait côté serveur).
+  if (!mission.peutOuvrir) return
   selectedMission.value = mission
   showMissionWorkspace.value = true
 }
 
+const route = useRoute()
+
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) activeTab.value = 'informations'
+    if (!open) return
+    activeTab.value = 'informations'
+    // Après un rafraîchissement, rouvrir la mission mémorisée dans l'URL (?mission=...).
+    const missionId = route.query.mission
+    const mission = missionId && props.client?.missions?.find((m) => m.id === missionId)
+    if (mission) {
+      activeTab.value = 'missions'
+      openMission(mission)
+    }
   },
 )
 
@@ -95,10 +116,12 @@ const infoRows = [
           <button
             type="button"
             class="rounded-full border border-gray-300 px-5 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+            @click="showEditClientModal = true"
           >
             Modifier
           </button>
           <button
+            v-if="canManage()"
             type="button"
             class="rounded-full bg-[#0d3b56] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
             @click="showNewMissionModal = true"
@@ -135,10 +158,10 @@ const infoRows = [
         </div>
 
         <div v-if="activeTab === 'informations'" class="mt-6 space-y-6">
-          <div v-for="(row, index) in infoRows" :key="index" class="grid grid-cols-3 gap-6">
+          <div v-for="(row, index) in infoRows" :key="index" class="grid grid-cols-1 gap-6 sm:grid-cols-3">
             <div v-for="field in row" :key="field.key">
               <p class="text-sm font-bold text-[#0d3b56]">{{ field.label }}</p>
-              <p class="mt-1 text-sm text-gray-600">{{ client[field.key] || '—' }}</p>
+              <p class="mt-1 text-sm text-gray-600">{{ client[field.key] || '-' }}</p>
             </div>
           </div>
         </div>
@@ -171,16 +194,24 @@ const infoRows = [
                     {{ mission.rapport }}
                   </span>
                   <span v-else-if="mission.rapport" class="text-gray-500">{{ mission.rapport }}</span>
-                  <span v-else class="text-gray-300">—</span>
+                  <span v-else class="text-gray-300">-</span>
                 </td>
                 <td class="py-3">
                   <button
+                    v-if="mission.peutOuvrir"
                     type="button"
                     class="rounded-full bg-[#7cb342] px-5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#6ca038]"
                     @click="openMission(mission)"
                   >
                     Ouvrir
                   </button>
+                  <span
+                    v-else
+                    class="inline-block cursor-not-allowed rounded-full bg-gray-100 px-5 py-1.5 text-xs font-semibold text-gray-400"
+                    title="Vous n'êtes pas affecté à cette mission"
+                  >
+                    Non affecté
+                  </span>
                 </td>
               </tr>
             </tbody>
@@ -191,7 +222,8 @@ const infoRows = [
     </div>
 
     <NewMissionModal v-model="showNewMissionModal" :client="client" @created="handleMissionCreated" />
-    <MissionWorkspaceModal v-model="showMissionWorkspace" :client="client" :mission="selectedMission" />
+    <MissionWorkspaceModal v-model="showMissionWorkspace" :client="client" :mission="selectedMission" sync-route />
+    <NewClientModal v-model="showEditClientModal" :client="client" @updated="handleClientUpdated" />
   </div>
 </template>
 

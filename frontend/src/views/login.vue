@@ -10,7 +10,7 @@ const loading = ref(false)
 const error = ref('')
 const showPassword = ref(false)
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const apiUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000`
 
 async function handleSubmit() {
   error.value = ''

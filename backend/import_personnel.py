@@ -1,7 +1,7 @@
 import csv
 from pathlib import Path
 
-from app.db import db
+from app.db.session import db
 
 CSV_PATH = Path(__file__).parent / "data" / "registre_personnel.csv"
 

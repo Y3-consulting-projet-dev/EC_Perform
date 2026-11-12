@@ -1,0 +1,45 @@
+# ONLYOFFICE Docs (Document Server, édition Community) pour l'édition du rapport final (Phase 6).
+#
+# Seul service conteneurisé : le backend (FastAPI) et MongoDB tournent hors Docker (cf. CLAUDE.md).
+# Le Document Server et le backend s'appellent mutuellement :
+#   - navigateur -> Document Server : ONLYOFFICE_PUBLIC_URL (api.js, éditeur) ;
+#   - Document Server -> backend : BACKEND_URL_FOR_ONLYOFFICE (téléchargement du fichier, callback) ;
+#   - backend -> Document Server : ONLYOFFICE_INTERNAL_URL (fichier modifié, conversion PDF).
+#
+# Démarrage :  cp .env.example .env  (renseigner ONLYOFFICE_JWT_SECRET, identique à backend/.env)
+#              docker compose up -d
+# Polices du modèle (Work Sans, Rajdhani — licence OFL) : déposer les .ttf dans
+# infra/onlyoffice/fonts/ puis redémarrer le conteneur (cf. infra/onlyoffice/fonts/README.md).
+#
+# Licence : AGPL v3, 20 connexions d'édition simultanées au maximum (édition Community).
+
+services:
+  onlyoffice:
+    image: onlyoffice/documentserver:${ONLYOFFICE_VERSION:-9.4.0.1}
+    container_name: ec-perform-onlyoffice
+    restart: unless-stopped
+    ports:
+      - "${ONLYOFFICE_PORT:-8080}:80"
+    environment:
+      JWT_ENABLED: "true"
+      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:?Renseigner ONLYOFFICE_JWT_SECRET dans .env}
+      JWT_HEADER: Authorization
+      JWT_IN_BODY: "true"
+      # Le backend est joint par une adresse privée (host.docker.internal / réseau local) :
+      # sans ces options, le Document Server refuse de télécharger le fichier (protection SSRF).
+      ALLOW_PRIVATE_IP_ADDRESS: "true"
+      ALLOW_META_IP_ADDRESS: "true"
+      # Régénère le cache des polices au démarrage (prise en compte de infra/onlyoffice/fonts).
+      GENERATE_FONTS: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - onlyoffice_data:/var/www/onlyoffice/Data
+      - onlyoffice_lib:/var/lib/onlyoffice
+      - onlyoffice_logs:/var/log/onlyoffice
+      - ./infra/onlyoffice/fonts:/usr/share/fonts/truetype/ec-perform:ro
+
+volumes:
+  onlyoffice_data:
+  onlyoffice_lib:
+  onlyoffice_logs:

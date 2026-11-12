@@ -37,3 +37,13 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Rapports exemples : contiennent des donnees client reelles
+docs/phase6/*.pptx
+
+# Variables docker-compose (secrets)
+/.env
+
+# Polices installees localement pour le Document Server
+infra/onlyoffice/fonts/*.ttf
+infra/onlyoffice/fonts/*.otf

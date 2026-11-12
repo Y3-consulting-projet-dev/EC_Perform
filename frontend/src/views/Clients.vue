@@ -1,9 +1,12 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ClientDetailModal from '../components/ClientDetailModal.vue'
 import NewClientModal from '../components/NewClientModal.vue'
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const apiUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000`
+const route = useRoute()
+const router = useRouter()
 
 function authHeaders() {
   return {
@@ -27,6 +30,7 @@ async function fetchClients() {
       return
     }
     clients.value = data
+    restoreFromUrl()
   } catch {
     error.value = 'Impossible de contacter le serveur.'
   } finally {
@@ -60,18 +64,35 @@ const showClientDetail = ref(false)
 function openClientDetail(client) {
   selectedClient.value = client
   showClientDetail.value = true
+  if (route.query.client !== client.id) {
+    router.replace({ query: { ...route.query, client: client.id } })
+  }
+}
+
+// La fiche client ouverte est mémorisée dans l'URL (?client=...) pour survivre à un rafraîchissement.
+watch(showClientDetail, (open) => {
+  if (open) return
+  const { client, mission, etape, cycle, ...rest } = route.query
+  router.replace({ query: rest })
+})
+
+function restoreFromUrl() {
+  const clientId = route.query.client
+  if (!clientId || showClientDetail.value) return
+  const client = clients.value.find((c) => c.id === clientId)
+  if (client) openClientDetail(client)
 }
 </script>
 
 <template>
   <div class="space-y-6">
-    <div class="flex items-start justify-between">
+    <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <h1 class="text-lg font-bold text-[#0d3b56]">Liste des clients</h1>
         <p class="text-xs text-gray-400">Clients en base de données</p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-3">
         <button
           type="button"
           class="rounded-lg bg-[#0d3b56] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0a2f45]"
@@ -97,7 +118,8 @@ function openClientDetail(client) {
     <div class="rounded-lg bg-white p-6 shadow-sm">
       <p v-if="error" class="mb-4 text-sm text-red-600">{{ error }}</p>
       <p v-if="loading" class="py-6 text-center text-sm text-gray-400">Chargement des clients...</p>
-      <table v-else class="w-full text-left text-sm">
+      <div v-else class="overflow-x-auto">
+      <table class="w-full min-w-[640px] text-left text-sm">
         <thead>
           <tr class="text-sm text-[#0d3b56]">
             <th class="pb-3 font-bold">Entreprise</th>
@@ -128,6 +150,7 @@ function openClientDetail(client) {
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
 
     <NewClientModal v-model="showNewClientModal" @created="handleClientCreated" />
