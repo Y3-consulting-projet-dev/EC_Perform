@@ -26,6 +26,8 @@ services:
       MONGO_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongo:27017/?authSource=admin
       MONGO_DB_NAME: ${MONGO_DB_NAME:-ec_perform}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?}
+    volumes:
+      - backend_uploads:/app/uploads
     depends_on:
       mongo:
         condition: service_healthy
@@ -55,5 +57,6 @@ services:
 
 volumes:
   mongo_data:
+  backend_uploads:
   caddy_data:
   caddy_config:

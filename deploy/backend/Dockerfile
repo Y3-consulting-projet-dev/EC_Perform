@@ -12,7 +12,9 @@ RUN pip install -r requirements.txt
 
 COPY backend/ .
 
-RUN useradd --system --uid 10001 --no-create-home app
+RUN useradd --system --uid 10001 --no-create-home app \
+    && mkdir -p /app/uploads \
+    && chown -R app:app /app/uploads
 USER app
 
 EXPOSE 8000
