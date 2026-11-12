@@ -38,3 +38,45 @@ def review_rank(employee) -> int:
 
 def can_review(employee, niveau: str) -> bool:
     return review_rank(employee) >= REVIEW_LEVEL_RANKS[niveau]
+
+
+# Rapport final (Phase 6). L'émission fige le rapport : réservée à l'Associé (rang 3), selon la
+# recommandation retenue le 09/11/2026 (rôle à confirmer par le cabinet : modifier ce rang suffit).
+RANG_EMISSION_RAPPORT = 3
+
+
+def peut_emettre_rapport(employee) -> bool:
+    return review_rank(employee) >= RANG_EMISSION_RAPPORT
+
+
+def intervenants(mission, role: str) -> list[str]:
+    """Noms des managers (role="manager") ou seniors (role="senior") désignés sur la mission.
+    Listes `managers` / `seniors` ; les missions plus anciennes n'ont qu'un champ texte `manager` / `senior`."""
+    noms = mission.get(f"{role}s")
+    if not isinstance(noms, list):
+        noms = [mission.get(role) or ""]
+    return [n.strip() for n in noms if isinstance(n, str) and n.strip()]
+
+
+def est_affecte(employee, mission) -> bool:
+    """Collaborateur affecté à la mission : membre de l'équipe (Phase 3), affecté à un cycle, ou
+    désigné comme senior / manager de la mission (noms : comparaison sur le nom complet)."""
+    employee_id = str(employee["_id"])
+    if employee_id in (mission.get("equipe") or []):
+        return True
+    if any((a or {}).get("assigneA") == employee_id for a in (mission.get("cycleAssignments") or {}).values()):
+        return True
+    nom = f"{employee.get('prenoms', '')} {employee.get('nom', '')}".strip().lower()
+    designes = {n.lower() for role in ("senior", "manager") for n in intervenants(mission, role)}
+    return bool(nom) and nom in designes
+
+
+def peut_ouvrir_mission(employee, mission) -> bool:
+    """Accès à l'espace de travail d'une mission : collaborateur affecté (équipe, cycle, senior /
+    manager), créateur de la mission, ou Associé (signe les rapports de toutes les missions).
+    Les autres voient la mission dans les listes sans pouvoir l'ouvrir."""
+    if est_affecte(employee, mission):
+        return True
+    if (mission.get("createdBy") or {}).get("id") == str(employee["_id"]):
+        return True
+    return review_rank(employee) >= RANG_EMISSION_RAPPORT

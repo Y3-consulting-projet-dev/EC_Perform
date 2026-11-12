@@ -4,7 +4,7 @@ import { reactive } from 'vue'
 // d'un même cycle lisent et modifient la même entrée, mise en cache par `missionId:code`,
 // ce qui évite de recharger le cycle à chaque changement d'onglet.
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const apiUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000`
 
 export const ETAPES = [
   { code: '4a', stepId: 'prise-connaissance', label: 'Prise de connaissance' },

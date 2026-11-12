@@ -79,8 +79,9 @@ def test_seul_le_collaborateur_affecte_ou_l_encadrement_edite(api, employees, mi
 
     headers = {"Authorization": f"Bearer {create_access_token('x@test.ci')}"}
     assert autre.inserted_id
-    response = _patch_section(api, mission, headers, "lead", {"commentaires": {"411000": "ok"}})
-    assert response.status_code == 403
+    # Non affecté à la mission : ni lecture ni écriture.
+    assert api.get(_url(mission, "/revision"), headers=headers).status_code == 403
+    assert api.patch(_url(mission, "/revision"), json={}, headers=headers).status_code == 403
     response = _patch_section(api, mission, employees["senior"]["headers"], "lead", {"commentaires": {"411000": "ok"}})
     assert response.status_code == 200
 

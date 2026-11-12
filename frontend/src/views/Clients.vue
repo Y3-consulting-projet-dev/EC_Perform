@@ -1,9 +1,12 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ClientDetailModal from '../components/ClientDetailModal.vue'
 import NewClientModal from '../components/NewClientModal.vue'
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const apiUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000`
+const route = useRoute()
+const router = useRouter()
 
 function authHeaders() {
   return {
@@ -27,6 +30,7 @@ async function fetchClients() {
       return
     }
     clients.value = data
+    restoreFromUrl()
   } catch {
     error.value = 'Impossible de contacter le serveur.'
   } finally {
@@ -60,6 +64,23 @@ const showClientDetail = ref(false)
 function openClientDetail(client) {
   selectedClient.value = client
   showClientDetail.value = true
+  if (route.query.client !== client.id) {
+    router.replace({ query: { ...route.query, client: client.id } })
+  }
+}
+
+// La fiche client ouverte est mémorisée dans l'URL (?client=...) pour survivre à un rafraîchissement.
+watch(showClientDetail, (open) => {
+  if (open) return
+  const { client, mission, etape, cycle, ...rest } = route.query
+  router.replace({ query: rest })
+})
+
+function restoreFromUrl() {
+  const clientId = route.query.client
+  if (!clientId || showClientDetail.value) return
+  const client = clients.value.find((c) => c.id === clientId)
+  if (client) openClientDetail(client)
 }
 </script>
 

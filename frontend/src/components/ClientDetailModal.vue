@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import MissionWorkspaceModal from './MissionWorkspaceModal.vue'
 import NewClientModal from './NewClientModal.vue'
 import NewMissionModal from './NewMissionModal.vue'
@@ -23,14 +24,26 @@ function handleClientUpdated(updated) {
 }
 
 function openMission(mission) {
+  // Seuls les collaborateurs de la mission peuvent l'ouvrir (contrôle refait côté serveur).
+  if (!mission.peutOuvrir) return
   selectedMission.value = mission
   showMissionWorkspace.value = true
 }
 
+const route = useRoute()
+
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) activeTab.value = 'informations'
+    if (!open) return
+    activeTab.value = 'informations'
+    // Après un rafraîchissement, rouvrir la mission mémorisée dans l'URL (?mission=...).
+    const missionId = route.query.mission
+    const mission = missionId && props.client?.missions?.find((m) => m.id === missionId)
+    if (mission) {
+      activeTab.value = 'missions'
+      openMission(mission)
+    }
   },
 )
 
@@ -185,12 +198,20 @@ const infoRows = [
                 </td>
                 <td class="py-3">
                   <button
+                    v-if="mission.peutOuvrir"
                     type="button"
                     class="rounded-full bg-[#7cb342] px-5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#6ca038]"
                     @click="openMission(mission)"
                   >
                     Ouvrir
                   </button>
+                  <span
+                    v-else
+                    class="inline-block cursor-not-allowed rounded-full bg-gray-100 px-5 py-1.5 text-xs font-semibold text-gray-400"
+                    title="Vous n'êtes pas affecté à cette mission"
+                  >
+                    Non affecté
+                  </span>
                 </td>
               </tr>
             </tbody>
@@ -201,7 +222,7 @@ const infoRows = [
     </div>
 
     <NewMissionModal v-model="showNewMissionModal" :client="client" @created="handleMissionCreated" />
-    <MissionWorkspaceModal v-model="showMissionWorkspace" :client="client" :mission="selectedMission" />
+    <MissionWorkspaceModal v-model="showMissionWorkspace" :client="client" :mission="selectedMission" sync-route />
     <NewClientModal v-model="showEditClientModal" :client="client" @updated="handleClientUpdated" />
   </div>
 </template>

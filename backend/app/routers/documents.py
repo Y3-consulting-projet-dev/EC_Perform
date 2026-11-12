@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
-from app.core.deps import get_current_employee
+from app.core.deps import require_mission_access
 from app.models.document import DocumentStatusUpdate
 from app.services import document_service
 
@@ -13,7 +13,7 @@ def serve_upload(mission_id: str, stored_name: str):
 
 
 @router.get("/missions/{mission_id}/documents")
-def get_mission_documents(mission_id: str, employee=Depends(get_current_employee)):
+def get_mission_documents(mission_id: str, employee=Depends(require_mission_access)):
     return document_service.get_mission_documents(mission_id)
 
 
@@ -26,7 +26,7 @@ def add_mission_document(
     dateDemande: str = Form(""),
     statut: str = Form("En attente de livraison"),
     fichier: UploadFile | None = File(None),
-    employee=Depends(get_current_employee),
+    employee=Depends(require_mission_access),
 ):
     return document_service.add_mission_document(
         mission_id, categorie, description, version, dateDemande, statut, fichier
@@ -38,6 +38,6 @@ def update_mission_document(
     mission_id: str,
     document_id: str,
     payload: DocumentStatusUpdate,
-    employee=Depends(get_current_employee),
+    employee=Depends(require_mission_access),
 ):
     return document_service.update_mission_document(mission_id, document_id, payload.statut)

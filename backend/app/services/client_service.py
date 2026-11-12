@@ -4,6 +4,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import HTTPException
 
+from app.core.permissions import peut_ouvrir_mission
 from app.db.session import db
 from app.services.mission_service import serialize_mission
 
@@ -54,13 +55,17 @@ def get_stats():
     return {"total": total, "newLastThreeMonths": new_last_three_months}
 
 
-def list_clients():
+def _serialize_mission_for(m, employee):
+    return {**serialize_mission(m), "peutOuvrir": peut_ouvrir_mission(employee, m)}
+
+
+def list_clients(employee):
     clients = [serialize_client(c) for c in db.clients.find()]
     clients.sort(key=lambda c: c["raisonSociale"].lower())
 
     missions_by_client = {}
     for m in db.missions.find():
-        missions_by_client.setdefault(m["clientId"], []).append(serialize_mission(m))
+        missions_by_client.setdefault(m["clientId"], []).append(_serialize_mission_for(m, employee))
     for c in clients:
         c["missions"] = missions_by_client.get(c["id"], [])
         c["missionsEnCours"] = sum(1 for m in c["missions"] if m["statut"] == "En cours")
@@ -77,7 +82,7 @@ def create_client(payload_dict):
     return serialize_client(created)
 
 
-def update_client(client_id, payload_dict):
+def update_client(client_id, payload_dict, employee):
     try:
         object_id = ObjectId(client_id)
     except InvalidId:
@@ -88,7 +93,7 @@ def update_client(client_id, payload_dict):
     db.clients.update_one({"_id": object_id}, {"$set": dict(payload_dict)})
     updated = db.clients.find_one({"_id": object_id})
 
-    missions_by_client = [serialize_mission(m) for m in db.missions.find({"clientId": client_id})]
+    missions_by_client = [_serialize_mission_for(m, employee) for m in db.missions.find({"clientId": client_id})]
     result = serialize_client(updated)
     result["missions"] = missions_by_client
     result["missionsEnCours"] = sum(1 for m in missions_by_client if m["statut"] == "En cours")

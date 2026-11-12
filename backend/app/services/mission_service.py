@@ -5,7 +5,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import HTTPException
 
-from app.core.permissions import is_management_grade
+from app.core.permissions import intervenants, is_management_grade, peut_ouvrir_mission
 from app.db.session import db
 
 DEFAULT_DOCUMENT_CATEGORIES = [
@@ -81,8 +81,10 @@ def serialize_mission(doc):
         "dateDebut": doc.get("dateDebut", ""),
         "echeance": doc.get("echeance", ""),
         "dateFinReelle": doc.get("dateFinReelle"),
-        "manager": doc.get("manager", ""),
-        "senior": doc.get("senior", ""),
+        "managers": intervenants(doc, "manager"),
+        "seniors": intervenants(doc, "senior"),
+        "manager": ", ".join(intervenants(doc, "manager")),
+        "senior": ", ".join(intervenants(doc, "senior")),
         "createdBy": doc.get("createdBy", {}),
         "createdAt": created_at.isoformat() if created_at else None,
     }
@@ -137,7 +139,7 @@ def get_stats():
     }
 
 
-def list_missions():
+def list_missions(employee):
     clients_by_id = {str(c["_id"]): c for c in db.clients.find()}
     managers_by_name = {}
     for e in db.employees.find():
@@ -146,14 +148,22 @@ def list_missions():
 
     today = datetime.now(timezone.utc).date()
     missions = []
-    for m in db.missions.find():
+    # Les plus récemment créées en premier (createdAt, sinon date de l'ObjectId).
+    docs = sorted(
+        db.missions.find(),
+        key=lambda m: _creation_date(m),
+        reverse=True,
+    )
+    for m in docs:
         client = clients_by_id.get(m.get("clientId"))
         client_name = ""
         if client:
             client_name = client.get("raisonSociale") or client.get("company_name") or ""
 
-        manager = managers_by_name.get(m.get("manager", ""))
-        manager_grade = manager.get("grade", "") if manager else ""
+        responsables = []
+        for nom in intervenants(m, "manager"):
+            manager = managers_by_name.get(nom)
+            responsables.append({"nom": nom, "grade": manager.get("grade", "") if manager else ""})
 
         date_debut = parse_date(m.get("dateDebut"))
         echeance = parse_date(m.get("echeance"))
@@ -185,17 +195,26 @@ def list_missions():
                 "dateDebut": m.get("dateDebut", ""),
                 "echeance": m.get("echeance", ""),
                 "dureeSemaines": duree_semaines,
-                "manager": m.get("manager", ""),
-                "managerGrade": manager_grade,
+                "manager": ", ".join(r["nom"] for r in responsables),
+                "managerGrade": responsables[0]["grade"] if responsables else "",
+                "managers": responsables,
+                "seniors": intervenants(m, "senior"),
                 "statut": statut,
                 "progression": progression,
                 "phase": m.get("phase", ""),
                 "phaseStep": mission_step(m),
+                "peutOuvrir": peut_ouvrir_mission(employee, m),
             }
         )
 
-    missions.sort(key=lambda x: x["client"].lower())
     return missions
+
+
+def _creation_date(mission):
+    created = mission.get("createdAt")
+    if isinstance(created, datetime):
+        return created if created.tzinfo else created.replace(tzinfo=timezone.utc)
+    return mission["_id"].generation_time
 
 
 def get_phases():
@@ -219,6 +238,12 @@ def create_mission(payload_dict, employee):
         raise HTTPException(status_code=404, detail="Client introuvable")
 
     doc = dict(payload_dict)
+    # Plusieurs managers / seniors possibles ; l'ancien champ unique reste accepté.
+    for role in ("manager", "senior"):
+        noms = doc.pop(f"{role}s", None) or [doc.get(role) or ""]
+        uniques = list(dict.fromkeys(n.strip() for n in noms if n and n.strip()))
+        doc[f"{role}s"] = uniques
+        doc.pop(role, None)
     doc["createdBy"] = {
         "id": str(employee["_id"]),
         "nom": employee["nom"],
@@ -228,7 +253,7 @@ def create_mission(payload_dict, employee):
     doc["documents"] = default_documents()
     result = db.missions.insert_one(doc)
     created = db.missions.find_one({"_id": result.inserted_id})
-    return serialize_mission(created)
+    return {**serialize_mission(created), "peutOuvrir": True}  # le créateur a accès à sa mission
 
 
 def close_mission(mission_id, date_fin):

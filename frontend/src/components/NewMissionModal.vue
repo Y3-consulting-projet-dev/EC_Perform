@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import MultiSelect from './MultiSelect.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -7,7 +8,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue', 'created'])
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const apiUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000`
 
 function authHeaders() {
   return {
@@ -60,8 +61,8 @@ function emptyForm() {
   return {
     dateDebut: '',
     echeance: '',
-    manager: '',
-    senior: '',
+    managers: [],
+    seniors: [],
   }
 }
 
@@ -131,8 +132,8 @@ async function handleSubmit() {
         exercice: String(currentYear),
         dateDebut: form.dateDebut,
         echeance: form.echeance,
-        manager: form.manager,
-        senior: form.senior,
+        managers: form.managers,
+        seniors: form.seniors,
       }),
     })
     const data = await response.json()
@@ -206,15 +207,13 @@ async function handleSubmit() {
           </div>
 
           <div>
-            <label for="mission-manager" class="mb-1 block text-sm font-bold text-[#0d3b56]">Manager</label>
-            <select
-              id="mission-manager"
-              v-model="form.manager"
-              class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
-            >
-              <option value="" disabled>Choisir</option>
-              <option v-for="name in managers" :key="name" :value="name">{{ name }}</option>
-            </select>
+            <label for="mission-manager" class="mb-1 block text-sm font-bold text-[#0d3b56]">Manager(s)</label>
+            <MultiSelect
+              v-model="form.managers"
+              input-id="mission-manager"
+              :options="managers"
+              placeholder="Choisir un ou plusieurs managers"
+            />
           </div>
           <div>
             <label for="mission-date-debut" class="mb-1 block text-sm font-bold text-[#0d3b56]">Date de début</label>
@@ -227,15 +226,13 @@ async function handleSubmit() {
           </div>
 
           <div>
-            <label for="mission-senior" class="mb-1 block text-sm font-bold text-[#0d3b56]">Senior</label>
-            <select
-              id="mission-senior"
-              v-model="form.senior"
-              class="w-full rounded-xl border border-[#7cb342] bg-white px-4 py-2.5 text-sm text-[#0d3b56] outline-none focus:ring-2 focus:ring-[#7cb342]"
-            >
-              <option value="" disabled>Choisir</option>
-              <option v-for="name in seniors" :key="name" :value="name">{{ name }}</option>
-            </select>
+            <label for="mission-senior" class="mb-1 block text-sm font-bold text-[#0d3b56]">Senior(s)</label>
+            <MultiSelect
+              v-model="form.seniors"
+              input-id="mission-senior"
+              :options="seniors"
+              placeholder="Choisir un ou plusieurs seniors"
+            />
           </div>
           <div>
             <label for="mission-echeance" class="mb-1 block text-sm font-bold text-[#0d3b56]">Échéance</label>

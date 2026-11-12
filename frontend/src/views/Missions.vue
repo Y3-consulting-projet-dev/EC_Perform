@@ -1,8 +1,11 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import MissionWorkspaceModal from '../components/MissionWorkspaceModal.vue'
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const route = useRoute()
+
+const apiUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000`
 
 function authHeaders() {
   return {
@@ -26,6 +29,7 @@ async function fetchMissions() {
       return
     }
     missions.value = data
+    restoreFromUrl()
   } catch {
     error.value = 'Impossible de contacter le serveur.'
   } finally {
@@ -101,9 +105,19 @@ const selectedClient = ref(null)
 const selectedMission = ref(null)
 
 function openMissionProcess(mission) {
+  // Seuls les collaborateurs de la mission peuvent l'ouvrir (contrôle refait côté serveur).
+  if (!mission.peutOuvrir) return
   selectedClient.value = { raisonSociale: mission.client }
   selectedMission.value = mission
   showWorkspace.value = true
+}
+
+// Après un rafraîchissement, rouvrir la mission mémorisée dans l'URL (?mission=...&etape=...).
+function restoreFromUrl() {
+  const missionId = route.query.mission
+  if (!missionId || showWorkspace.value) return
+  const mission = missions.value.find((m) => m.id === missionId)
+  if (mission) openMissionProcess(mission)
 }
 </script>
 
@@ -197,14 +211,35 @@ function openMissionProcess(mission) {
             <tr
               v-for="mission in filteredMissions"
               :key="mission.id"
-              class="cursor-pointer border-t border-gray-100 transition hover:bg-gray-50"
+              class="border-t border-gray-100 transition"
+              :class="mission.peutOuvrir ? 'cursor-pointer hover:bg-gray-50' : 'cursor-not-allowed'"
+              :title="mission.peutOuvrir ? '' : 'Vous n\'êtes pas affecté à cette mission'"
               @click="openMissionProcess(mission)"
             >
-              <td class="px-6 py-4 text-[#0d3b56]">{{ mission.client }}</td>
+              <td class="px-6 py-4 text-[#0d3b56]">
+                <span class="inline-flex items-center gap-2">
+                  {{ mission.client }}
+                  <svg
+                    v-if="!mission.peutOuvrir"
+                    viewBox="0 0 24 24"
+                    class="h-3.5 w-3.5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    aria-label="Mission non accessible"
+                  >
+                    <rect x="5" y="11" width="14" height="10" rx="2" />
+                    <path stroke-linecap="round" d="M8 11V7a4 4 0 0 1 8 0v4" />
+                  </svg>
+                </span>
+              </td>
               <td class="px-6 py-4 text-gray-500" :title="dureeTitle(mission)">{{ dureeLabel(mission) }}</td>
               <td class="px-6 py-4">
-                <p class="font-bold text-[#0d3b56]">{{ mission.manager }}</p>
-                <p class="text-xs text-gray-400">{{ mission.managerGrade }}</p>
+                <div v-for="responsable in mission.managers" :key="responsable.nom">
+                  <p class="font-bold text-[#0d3b56]">{{ responsable.nom }}</p>
+                  <p class="text-xs text-gray-400">{{ responsable.grade }}</p>
+                </div>
+                <p v-if="!mission.managers?.length" class="text-gray-300">-</p>
               </td>
               <td class="px-6 py-4">
                 <span class="rounded-full px-3 py-1 text-xs font-semibold" :class="statutStyles[mission.statut]">
@@ -249,6 +284,6 @@ function openMissionProcess(mission) {
       </div>
     </div>
 
-    <MissionWorkspaceModal v-model="showWorkspace" :client="selectedClient" :mission="selectedMission" />
+    <MissionWorkspaceModal v-model="showWorkspace" :client="selectedClient" :mission="selectedMission" sync-route />
   </div>
 </template>

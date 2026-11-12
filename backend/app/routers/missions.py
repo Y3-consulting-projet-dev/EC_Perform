@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.core.deps import get_current_employee
+from app.core.deps import get_current_employee, require_mission_access
 from app.models.mission import MissionCloseRequest, MissionCreateRequest
 from app.services import mission_service
 
@@ -19,7 +19,7 @@ def mission_phases(employee=Depends(get_current_employee)):
 
 @router.get("")
 def list_missions(employee=Depends(get_current_employee)):
-    return mission_service.list_missions()
+    return mission_service.list_missions(employee)
 
 
 @router.post("", status_code=201)
@@ -28,5 +28,5 @@ def create_mission(payload: MissionCreateRequest, employee=Depends(get_current_e
 
 
 @router.patch("/{mission_id}/cloturer")
-def close_mission(mission_id: str, payload: MissionCloseRequest, employee=Depends(get_current_employee)):
+def close_mission(mission_id: str, payload: MissionCloseRequest, employee=Depends(require_mission_access)):
     return mission_service.close_mission(mission_id, payload.dateFin)

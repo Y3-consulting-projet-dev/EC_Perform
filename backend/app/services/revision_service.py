@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from pymongo import ReturnDocument
 
-from app.core.permissions import REVIEW_LEVEL_LABELS, REVIEW_LEVELS, can_review, is_management_grade
+from app.core.permissions import REVIEW_LEVEL_LABELS, REVIEW_LEVELS, can_review, intervenants, is_management_grade
 from app.db.session import db
 from app.models.revision import ConclusionData, ConstatsData, JustificationData, LeadData, PriseConnaissanceData
 from app.services.cycle_service import CYCLES
@@ -140,7 +140,11 @@ def _chaine(doc, mission, collaborateur):
         }
     ]
 
-    attendus = {"senior": mission.get("senior") or None, "manager": mission.get("manager") or None, "associe": None}
+    attendus = {
+        "senior": ", ".join(intervenants(mission, "senior")) or None,
+        "manager": ", ".join(intervenants(mission, "manager")) or None,
+        "associe": None,
+    }
     for niveau in REVIEW_LEVELS:
         validation = validations.get(niveau)
         if statut == STATUTS_REVUE[niveau]:

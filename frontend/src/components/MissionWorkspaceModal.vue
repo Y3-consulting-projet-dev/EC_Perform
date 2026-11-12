@@ -1,6 +1,6 @@
 <script setup>
 import { computed, provide, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import logo from '../assets/logo2.y3.png'
 import { resetRevisionCache } from '../composables/useCycleRevision'
 import ConclusionCycle from './mission-steps/ConclusionCycle.vue'
@@ -9,6 +9,7 @@ import ControleCoherence from './mission-steps/ControleCoherence.vue'
 import ControleIntangibilite from './mission-steps/ControleIntangibilite.vue'
 import ControlesDetailles from './mission-steps/ControlesDetailles.vue'
 import DecoupageCycles from './mission-steps/DecoupageCycles.vue'
+import EmissionRapport from './mission-steps/EmissionRapport.vue'
 import EnDeveloppement from './mission-steps/EnDeveloppement.vue'
 import GenerationLeads from './mission-steps/GenerationLeads.vue'
 import JustificationSolde from './mission-steps/JustificationSolde.vue'
@@ -16,16 +17,19 @@ import LeadCycle from './mission-steps/LeadCycle.vue'
 import OuvertureCollecte from './mission-steps/OuvertureCollecte.vue'
 import PriseConnaissance from './mission-steps/PriseConnaissance.vue'
 import RepartitionCycles from './mission-steps/RepartitionCycles.vue'
+import RestitutionClient from './mission-steps/RestitutionClient.vue'
 import RevueNiveau from './mission-steps/RevueNiveau.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   client: { type: Object, default: null },
   mission: { type: Object, default: null },
+  // Synchronise mission / étape / cycle avec l'URL (rafraîchissement de page).
+  syncRoute: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:modelValue'])
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const apiUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000`
 
 function authHeaders() {
   return {
@@ -136,6 +140,8 @@ const stepComponents = {
   'revue-senior': RevueNiveau,
   'revue-manager': RevueNiveau,
   'revue-associe': RevueNiveau,
+  'restitution-client': RestitutionClient,
+  'emission-rapport-final': EmissionRapport,
 }
 
 const stepProps = {
@@ -159,21 +165,43 @@ function goToStep(stepId, cycleCode) {
 
 provide('revisionNav', { selectedCycle, activeStepId, goToStep })
 
+const router = useRouter()
+const route = useRoute()
+const stepIds = new Set(phaseGroups.flatMap((group) => group.steps.map((step) => step.id)))
+
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
-      activeStepId.value = phaseGroups[0].steps[0].id
-      selectedCycle.value = null
+      // Après un rafraîchissement, reprendre l'étape et le cycle mémorisés dans l'URL.
+      const fromUrl = props.syncRoute && route.query.mission === props.mission?.id
+      const etape = fromUrl ? route.query.etape : null
+      activeStepId.value = stepIds.has(etape) ? etape : phaseGroups[0].steps[0].id
+      selectedCycle.value = fromUrl && route.query.cycle ? String(route.query.cycle) : null
       // Repartir de l'état serveur : un collègue a pu valider, renvoyer ou modifier un cycle.
       resetRevisionCache()
     }
   },
+  { immediate: true },
 )
 
-const router = useRouter()
+// Mémorise mission / étape / cycle dans l'URL pour survivre à un rafraîchissement.
+watch([() => props.modelValue, activeStepId, selectedCycle], ([open]) => {
+  if (!props.syncRoute || !open || !props.mission?.id) return
+  const query = { ...route.query, mission: props.mission.id, etape: activeStepId.value }
+  if (selectedCycle.value) query.cycle = selectedCycle.value
+  else delete query.cycle
+  router.replace({ query })
+})
+
+function clearRouteState() {
+  if (!props.syncRoute) return
+  const { mission, etape, cycle, ...rest } = route.query
+  router.replace({ query: rest })
+}
 
 function close() {
+  clearRouteState()
   emit('update:modelValue', false)
 }
 

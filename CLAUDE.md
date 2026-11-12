@@ -105,8 +105,34 @@ Phase 4 (révision par cycle) / Phase 5 (revue multi-niveaux), one document per 
 - Review rights come from the employee grade (`core/permissions.py`: `can_review`); a level may act on
   lower levels. Every write is re-checked server side (lock, rights, sequential levels).
 
-CORS is hardcoded to allow only `http://localhost:5173` (`main.py`) - update this if the frontend
-dev port or a deployed origin changes.
+Phase 6 (restitution client, rapport final PPTX) - see `docs/phase6/mapping_rapport.md`:
+- Collections: `rapports` (one per mission: `statut` genere | en_finition | emis, `versions[]` with origine
+  generation | edition_onlyoffice | emission and a GridFS `fileId` in bucket `rapport_fichiers`, `saisie` = report data
+  absent from Phases 1-5, `session` = current ONLYOFFICE co-editing session) and `restitutions` (meeting + per-constat
+  client comments). Both read-only towards Phases 1-5.
+- `services/rapport/`: `donnees.py` (only Mongo reader), `builders.py` (one function per slide type, removes unused
+  placeholders), `pagination.py`, `formules.py` (evaluates integrated working-paper formulas), `assembleur.py`.
+  The template `backend/templates/rapport_template.pptx` is rebuilt by `python -m scripts.construire_modele`; builders
+  rely on its layout NAMES and placeholder idx.
+- ONLYOFFICE Docs runs from the root `docker-compose.yml`; env vars in `backend/.env.example` / `.env.example`.
+  `/onlyoffice/*` routes are server-to-server (signed token in URL + ONLYOFFICE JWT), not bearer-authenticated.
+- Demo data (fictional SAVEDO SA): `python -m scripts.demo_savedo --email <employee>`; tests in `tests/test_rapport.py`.
+
+CORS (`main.py`) allows ports 5173/4173 on localhost and private-network IPs by default
+(`CORS_ORIGIN_REGEX` in `.env` overrides it).
+
+### Running for other machines on the LAN
+
+- `demarrer.ps1` (root; `-SansOnlyoffice` skips Docker) starts Mongo (WSL), ONLYOFFICE, the API
+  (uvicorn in WSL, no reload, `0.0.0.0`) and Vite, and rewrites `ONLYOFFICE_PUBLIC_URL` in
+  `backend/.env` to the current IP (remote browsers must load the editor through that IP).
+- The API is NOT exposed: `frontend/.env` sets `VITE_API_URL=/api` and Vite proxies `/api` to
+  `127.0.0.1:8000` (`vite.config.js`). Reason: with WSL `mirrored` networking the API only answers on
+  localhost (Hyper-V firewall blocks inbound, the Mobile Hotspot interface 192.168.137.1 isn't mirrored).
+- `infra/ouvrir-pare-feu.ps1` (once, as admin) opens 5173 and 8080 to private ranges.
+- WSL 2.7.11 on this machine crashes intermittently (`wslservice.exe` / `wsl.exe` 0xC00000FD, seen
+  2026-11-05 and 2026-11-11); that kills the API and Mongo. Binding uvicorn on `::` and launching
+  `wsl.exe` directly via `Start-Process` coincided with crashes.
 
 ### Frontend (`frontend/src/`)
 

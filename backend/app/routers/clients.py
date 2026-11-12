@@ -14,7 +14,7 @@ def client_stats(employee=Depends(get_current_employee)):
 
 @router.get("")
 def list_clients(employee=Depends(get_current_employee)):
-    return client_service.list_clients()
+    return client_service.list_clients(employee)
 
 
 @router.post("", status_code=201)
@@ -24,4 +24,4 @@ def create_client(payload: ClientCreateRequest, employee=Depends(get_current_emp
 
 @router.patch("/{client_id}")
 def update_client(client_id: str, payload: ClientUpdateRequest, employee=Depends(get_current_employee)):
-    return client_service.update_client(client_id, payload.model_dump())
+    return client_service.update_client(client_id, payload.model_dump(), employee)

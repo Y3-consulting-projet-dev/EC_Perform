@@ -9,6 +9,10 @@ class MissionCreateRequest(BaseModel):
     rapport: str | None = None
     dateDebut: str
     echeance: str
+    # Plusieurs managers / seniors peuvent intervenir sur une mission (noms complets).
+    managers: list[str] = []
+    seniors: list[str] = []
+    # Ancien format (un seul nom), encore accepté.
     manager: str = ""
     senior: str = ""
 

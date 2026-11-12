@@ -14,3 +14,6 @@ def create_indexes():
         [("missionId", ASCENDING), ("cycleCode", ASCENDING), ("etape", ASCENDING)], unique=True
     )
     db.working_paper_versions.create_index([("paperId", ASCENDING), ("version", DESCENDING)])
+    # Phase 6 : un rapport final et une restitution par mission.
+    db.rapports.create_index([("missionId", ASCENDING)], unique=True)
+    db.restitutions.create_index([("missionId", ASCENDING)], unique=True)
